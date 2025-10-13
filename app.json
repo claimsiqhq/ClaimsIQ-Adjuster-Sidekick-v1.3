@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "expo-on-replit",
-    "slug": "expo-on-replit",
+    "slug": "claimsiq-adjuster-sidekick-v13",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -37,6 +37,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "31e9a2f0-7c90-41af-bdf1-f3e53d0e75dd"
+      }
+    },
+    "owner": "claimsiq"
   }
 }
