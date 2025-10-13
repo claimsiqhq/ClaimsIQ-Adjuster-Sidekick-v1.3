@@ -1,45 +1,92 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Platform } from 'react-native';
+import { Tabs, Link } from "expo-router";
+import { View, StyleSheet, Pressable, Platform } from "react-native";
+import TabBarIcon from "../../components/TabBarIcon";
+import { colors } from "../../theme/colors";
 
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+function CaptureBump(props: any) {
+  return (
+    <Pressable {...props}>
+      {({ pressed }) => (
+        <View style={[styles.bump, pressed && { transform: [{ scale: 0.97 }] }]}>
+          <TabBarIcon name="camera" color={colors.white} size={24} />
+        </View>
+      )}
+    </Pressable>
+  );
+}
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}>
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: "#9AA0A6",
+        tabBarStyle: styles.tabbar,
+        tabBarLabelStyle: { fontSize: 11 }
+      }}
+    >
       <Tabs.Screen
-        name="index"
+        name="today"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Today",
+          tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="claims"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Claims",
+          tabBarIcon: ({ color }) => <TabBarIcon name="folder" color={color} />
+        }}
+      />
+      <Tabs.Screen
+        name="capture"
+        options={{
+          title: "",
+          tabBarIcon: () => null,
+          tabBarButton: (props) => <CaptureBump {...props} />
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: "Map",
+          tabBarIcon: ({ color }) => <TabBarIcon name="map" color={color} />
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) => <TabBarIcon name="gearshape" color={color} />
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabbar: {
+    height: 64,
+    paddingBottom: 10,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: colors.line,
+    backgroundColor: colors.white
+  },
+  bump: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Platform.select({ ios: 24, android: 16 }),
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6
+  }
+});
