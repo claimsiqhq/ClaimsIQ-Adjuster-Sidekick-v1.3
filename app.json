@@ -27,12 +27,17 @@
           "resizeMode": "contain",
           "backgroundColor": "#F0E6FA"
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
-    "experiments": { "typedRoutes": true },
+    "experiments": {
+      "typedRoutes": true
+    },
     "extra": {
       "router": {},
-      "eas": { "projectId": "31e9a2f0-7c90-41af-bdf1-f3e53d0e75dd" }
+      "eas": {
+        "projectId": "31e9a2f0-7c90-41af-bdf1-f3e53d0e75dd"
+      }
     },
     "owner": "claimsiq"
   }

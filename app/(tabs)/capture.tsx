@@ -1,4 +1,5 @@
 // app/(tabs)/capture.tsx
+import 'react-native-get-random-values';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, FlatList, Image, Modal, ActivityIndicator, Alert } from 'react-native';
 import * as CameraLib from 'expo-camera';
