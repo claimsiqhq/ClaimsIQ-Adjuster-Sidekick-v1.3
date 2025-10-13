@@ -1,10 +1,22 @@
-// File: utils/supabase.ts
-
+// utils/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 
-// Load environment variables (Expo inlines EXPO_PUBLIC_ vars at build time)
+// Expo bundles env vars with EXPO_PUBLIC_ prefix
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_API_KEY!;
 
-// Initialize the Supabase client with the publishable (public) API key
+// Single client used across the app
 export const supabase = createClient(supabaseUrl, supabaseKey);
+
+// If/when you add Supabase Auth with session persistence on RN, uncomment:
+/*
+import 'expo-sqlite/localStorage/install';
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: localStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+*/
