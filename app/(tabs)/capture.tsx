@@ -6,11 +6,11 @@ import * as CameraLib from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
 import { colors } from '@/theme/colors';
 import Header from '@/components/Header';
-import { supabase } from '@/utils/supabase';
 import { insertMediaRow, listMedia, uploadPhotoToStorage, MediaItem } from '@/services/media';
 import { v4 as uuidv4 } from 'uuid';
+import { useRouter } from 'expo-router';
+import { invokeAnnotation } from '@/services/annotate';
 
-// Quick local type for grid rendering
 type GridItem = MediaItem & { thumb_uri?: string };
 
 export default function CaptureScreen() {
@@ -19,8 +19,8 @@ export default function CaptureScreen() {
   const [loading, setLoading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [permission, requestPermission] = CameraLib.useCameraPermissions();
+  const router = useRouter();
 
-  // Load gallery from Supabase on mount & when returning from capture
   async function loadGallery() {
     try {
       setLoading(true);
@@ -49,7 +49,6 @@ export default function CaptureScreen() {
   return (
     <View style={styles.container}>
       <Header title="Capture" subtitle="Photo • LiDAR • Documents" />
-
       <View style={styles.segment}>
         <Pressable onPress={() => setMode('capture')} style={[styles.segBtn, mode==='capture' && styles.segActive]}>
           <Text style={[styles.segText, mode==='capture' && styles.segTextActive]}>Capture</Text>
@@ -63,7 +62,7 @@ export default function CaptureScreen() {
         <View style={styles.grid}>
           <Pressable style={[styles.tile, styles.a]} onPress={onOpenCamera}>
             <Text style={styles.tileH}>Photo</Text>
-            <Text style={styles.tileP}>Open camera, auto-upload</Text>
+            <Text style={styles.tileP}>Open camera, upload, annotate</Text>
           </Pressable>
           <Pressable style={[styles.tile, styles.b]} onPress={() => Alert.alert('RoomPlan', 'LiDAR requires a Dev Client. We’ll wire this next.')}>
             <Text style={styles.tileH}>LiDAR</Text>
@@ -84,12 +83,27 @@ export default function CaptureScreen() {
               numColumns={2}
               data={items}
               keyExtractor={(i) => i.id}
-              renderItem={({ item }) => <MediaCard item={item} />}
-              ListEmptyComponent={
-                <View style={{ padding: 24, alignItems: 'center' }}>
-                  <Text style={{ color: colors.core }}>No media yet. Take your first photo.</Text>
-                </View>
-              }
+              renderItem={({ item }) => (
+                <Pressable style={styles.card} onPress={() => router.push(`/photo/${item.id}`)}>
+                  {item.storage_path ? (
+                    <Image source={{ uri: `https://lyppkkpawalcchbgbkxg.supabase.co/storage/v1/object/public/${item.storage_path}` }} style={styles.thumb} />
+                  ) : item.thumb_uri ? (
+                    <Image source={{ uri: item.thumb_uri }} style={styles.thumb} />
+                  ) : (
+                    <View style={[styles.thumb, { backgroundColor: colors.bgAlt, alignItems: 'center', justifyContent: 'center' }]}><Text style={{ color: '#9AA0A6' }}>Photo</Text></View>
+                  )}
+                  <View style={styles.row}>
+                    <Text style={styles.label}>{item.label ?? (item.type === 'photo' ? 'Photo' : 'Room')}</Text>
+                    <View style={[styles.badge, (item.status !== 'done' && item.status !== 'uploaded') && { backgroundColor: colors.sand }]}>
+                      <Text style={styles.badgeText}>
+                        {item.type === 'photo' ? `${item.anno_count ?? 0} • ` : ''}
+                        {item.status}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              )}
+              ListEmptyComponent={<View style={{ padding: 24, alignItems: 'center' }}><Text style={{ color: colors.core }}>No media yet. Take your first photo.</Text></View>}
               refreshing={loading}
               onRefresh={loadGallery}
             />
@@ -101,36 +115,34 @@ export default function CaptureScreen() {
         open={cameraOpen}
         onClose={() => setCameraOpen(false)}
         onCaptured={async (localUri) => {
-          // optimistic item
+          // optimistic card
           const tempId = uuidv4();
-          setItems(prev => [{ 
-            id: tempId, claim_id: null, type: 'photo', status: 'uploading', label: 'Photo',
-            storage_path: null, anno_count: 0, qc: null, created_at: new Date().toISOString(),
-            thumb_uri: localUri
+          setItems(prev => [{
+            id: tempId, created_at: new Date().toISOString(),
+            user_id: null, org_id: null, claim_id: null, type: 'photo',
+            status: 'uploading', label: 'Photo', storage_path: null, anno_count: 0, qc: null, thumb_uri: localUri
           }, ...prev]);
 
           try {
-            // Build a storage path. Later you’ll add org/user folders.
             const fileName = `${uuidv4()}.jpg`;
             const path = `media/${fileName}`;
-
             await uploadPhotoToStorage(localUri, path);
 
-            // Insert DB row
+            // Insert DB row as 'uploaded' then immediately mark 'annotating'
             const row = await insertMediaRow({
-              claim_id: null,
-              type: 'photo',
-              status: 'uploaded',
-              label: 'Photo',
-              storage_path: path,
-              anno_count: 0,
-              qc: null,
+              claim_id: null, type: 'photo', status: 'annotating', label: 'Photo', storage_path: path, anno_count: 0, qc: null
             });
 
-            // swap optimistic item with actual row (retain thumb uri)
-            setItems(prev => {
-              const copy = prev.filter(x => x.id !== tempId);
-              return [{ ...row, thumb_uri: localUri }, ...copy];
+            // Replace optimistic with DB row (show local thumb)
+            setItems(prev => [ { ...row, thumb_uri: localUri }, ...prev.filter(x => x.id !== tempId) ]);
+
+            // Kick off annotation (edge function)
+            invokeAnnotation(row.id, path).then(async () => {
+              // Refresh the one row (simpler: just reload list)
+              await loadGallery();
+            }).catch(err => {
+              console.error('annotate failed', err?.message ?? err);
+              Alert.alert('Annotation failed', String(err?.message ?? err));
             });
           } catch (e: any) {
             console.error('upload/insert failed', e?.message ?? e);
@@ -143,72 +155,28 @@ export default function CaptureScreen() {
   );
 }
 
-function MediaCard({ item }: { item: GridItem }) {
-  const badgeLabel = useMemo(() => {
-    if (item.type === 'photo') {
-      const count = item.anno_count ?? 0;
-      return `${count} • ${item.status}`;
-    }
-    return item.status;
-  }, [item]);
-
-  return (
-    <View style={styles.card}>
-      {item.thumb_uri ? (
-        <Image source={{ uri: item.thumb_uri }} style={styles.thumb} />
-      ) : (
-        <View style={[styles.thumb, { backgroundColor: colors.bgAlt, alignItems: 'center', justifyContent: 'center' }]}>
-          <Text style={{ color: '#9AA0A6' }}>{item.type === 'photo' ? 'Photo' : 'Room'}</Text>
-        </View>
-      )}
-      <View style={styles.row}>
-        <Text style={styles.label}>{item.label ?? (item.type === 'photo' ? 'Photo' : 'Room')}</Text>
-        <View style={[styles.badge, (item.status !== 'done' && item.status !== 'uploaded') && { backgroundColor: colors.sand }]}>
-          <Text style={styles.badgeText}>{badgeLabel}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 function CameraModal({
   open, onClose, onCaptured
 }: { open: boolean; onClose: () => void; onCaptured: (uri: string) => void }) {
   const cameraRef = useRef<CameraLib.CameraView>(null);
   const [ready, setReady] = useState(false);
-
   return (
     <Modal visible={open} animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: 'black' }}>
-        <CameraLib.CameraView
-          ref={cameraRef as any}
-          style={{ flex: 1 }}
-          facing="back"
-          onCameraReady={() => setReady(true)}
-        />
+        <CameraLib.CameraView ref={cameraRef as any} style={{ flex: 1 }} facing="back" onCameraReady={() => setReady(true)} />
         <View style={styles.camBar}>
-          <Pressable style={styles.camBtn} onPress={onClose}>
-            <Text style={styles.camBtnText}>Close</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.captureButton, !ready && { opacity: 0.4 }]}
-            disabled={!ready}
-            onPress={async () => {
-              try {
-                // Snapshot via CameraView’s takePictureAsync
-                const cam = cameraRef.current as any;
-                const pic = await cam.takePictureAsync?.({ quality: 0.85, skipProcessing: true });
-                if (!pic?.uri) throw new Error('No image captured');
-                // Copy to cache to keep it around
-                const dest = FileSystem.cacheDirectory! + `photo_${Date.now()}.jpg`;
-                await FileSystem.copyAsync({ from: pic.uri, to: dest });
-                onCaptured(dest);
-                onClose();
-              } catch (e: any) {
-                Alert.alert('Camera error', String(e?.message ?? e));
-              }
-            }}
-          >
+          <Pressable style={styles.camBtn} onPress={onClose}><Text style={styles.camBtnText}>Close</Text></Pressable>
+          <Pressable style={[styles.captureButton, !ready && { opacity: 0.4 }]} disabled={!ready} onPress={async () => {
+            try {
+              const cam = cameraRef.current as any;
+              const pic = await cam.takePictureAsync?.({ quality: 0.85, skipProcessing: true });
+              if (!pic?.uri) throw new Error('No image captured');
+              const dest = FileSystem.cacheDirectory! + `photo_${Date.now()}.jpg`;
+              await FileSystem.copyAsync({ from: pic.uri, to: dest });
+              onCaptured(dest);
+              onClose();
+            } catch (e: any) { Alert.alert('Camera error', String(e?.message ?? e)); }
+          }}>
             <View style={styles.shutterInner} />
           </Pressable>
           <View style={{ width: 80 }} />
@@ -230,9 +198,7 @@ const styles = StyleSheet.create({
   tile: { borderRadius: 18, padding: 18, height: 120, justifyContent: 'flex-end' },
   tileH: { color: colors.white, fontWeight: '700', fontSize: 18 },
   tileP: { color: colors.white, opacity: 0.9, marginTop: 2 },
-  a: { backgroundColor: colors.primary },
-  b: { backgroundColor: colors.secondary },
-  c: { backgroundColor: colors.gold },
+  a: { backgroundColor: colors.primary }, b: { backgroundColor: colors.secondary }, c: { backgroundColor: colors.gold },
 
   gallery: { padding: 12, gap: 12 },
   card: { backgroundColor: colors.white, borderRadius: 14, padding: 8, margin: 6, flex: 1, borderWidth: 1, borderColor: colors.line },
