@@ -1,4 +1,3 @@
-// services/media.ts
 import { supabase } from '@/utils/supabase';
 
 export type MediaType = 'photo' | 'lidar_room';
@@ -18,6 +17,7 @@ export interface MediaItem {
   qc: any | null;
   annotation_json?: any | null;
   redaction_json?: any | null;
+  derived?: any | null;
 }
 
 export async function uploadPhotoToStorage(localUri: string, path: string): Promise<string> {
@@ -34,23 +34,16 @@ export async function insertMediaRow(row: Partial<MediaItem>): Promise<MediaItem
   return data as MediaItem;
 }
 
-export type MediaFilters = {
-  claimId?: string | null;
-  type?: MediaType | 'all';
-  status?: MediaStatus | 'all';
-};
-
-export async function listMedia(limit = 100, filters?: MediaFilters): Promise<MediaItem[]> {
-  let q = supabase.from('media').select('*').order('created_at', { ascending: false }).limit(limit);
-  if (filters?.claimId !== undefined) {
-    if (filters.claimId === null) q = q.is('claim_id', null);
-    else if (filters.claimId) q = q.eq('claim_id', filters.claimId);
-  }
-  if (filters?.type && filters.type !== 'all') q = q.eq('type', filters.type);
-  if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
-  const { data, error } = await q;
+export async function listMedia(limit = 100): Promise<MediaItem[]> {
+  const { data, error } = await supabase.from('media').select('*').order('created_at', { ascending: false }).limit(limit);
   if (error) throw error;
   return (data ?? []) as MediaItem[];
+}
+
+export async function getMediaById(id: string): Promise<MediaItem | null> {
+  const { data, error } = await supabase.from('media').select('*').eq('id', id).maybeSingle();
+  if (error) return null;
+  return (data as MediaItem) ?? null;
 }
 
 export function getPublicUrl(path: string | null | undefined): string | null {
@@ -59,8 +52,9 @@ export function getPublicUrl(path: string | null | undefined): string | null {
   return data?.publicUrl ?? null;
 }
 
-export async function assignMediaToClaim(ids: string[], claimId: string | null) {
-  const { error } = await supabase.from('media').update({ claim_id: claimId }).in('id', ids);
+export async function batchAssignToClaim(mediaIds: string[], claim_id: string | null) {
+  if (!mediaIds.length) return;
+  const { error } = await supabase.from('media').update({ claim_id }).in('id', mediaIds);
   if (error) throw error;
 }
 

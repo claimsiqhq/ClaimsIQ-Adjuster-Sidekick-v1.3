@@ -1,9 +1,9 @@
-// app/(tabs)/settings.tsx
 import { View, Text, StyleSheet, Switch, Pressable } from 'react-native';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
 import { colors } from '@/theme/colors';
 import { useRouter } from 'expo-router';
+import { signOut } from '@/services/auth';
 
 function Row({ label }: { label: string }) {
   return (
@@ -35,8 +35,8 @@ export default function SettingsScreen() {
         </Pressable>
       </Section>
       <Section title="Session">
-        <Pressable style={[styles.link, { backgroundColor: colors.gold }]} onPress={() => router.replace('/auth/login')}>
-          <Text style={[styles.linkTxt, { color: colors.core }]}>Go to Login</Text>
+        <Pressable style={[styles.link, { backgroundColor: colors.gold }]} onPress={async () => { await signOut(); router.replace('/auth/login'); }}>
+          <Text style={[styles.linkTxt, { color: colors.core }]}>Sign Out</Text>
         </Pressable>
       </Section>
     </View>
@@ -47,10 +47,9 @@ const rowStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.white, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.line, marginBottom: 8, marginHorizontal: 16 },
   label: { color: colors.core, fontWeight: '500' }
 });
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgSoft },
   li: { color: '#2B2F36', marginBottom: 6, marginHorizontal: 16 },
   link: { backgroundColor: colors.primary, padding: 12, marginHorizontal: 16, borderRadius: 10, alignItems: 'center' },
-  linkTxt: { color: colors.white, fontWeight: '700' },
+  linkTxt: { color: colors.white, fontWeight: '700' }
 });
