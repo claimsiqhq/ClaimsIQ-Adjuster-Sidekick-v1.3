@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Switch, Pressable } from 'react-native';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
 import { colors } from '@/theme/colors';
-import { signOut } from '@/services/auth';
 import { useRouter } from 'expo-router';
 
 function Row({ label }: { label: string }) {
@@ -30,9 +29,14 @@ export default function SettingsScreen() {
         <Row label="Auto-upload on Wi-Fi only" />
         <Row label="Embed annotations in report exports" />
       </Section>
+      <Section title="Admin">
+        <Pressable style={styles.link} onPress={() => router.push('/admin/prompts')}>
+          <Text style={styles.linkTxt}>Open Prompt Admin</Text>
+        </Pressable>
+      </Section>
       <Section title="Session">
-        <Pressable style={styles.link} onPress={async () => { await signOut(); router.replace('/auth/login'); }}>
-          <Text style={styles.linkTxt}>Sign Out</Text>
+        <Pressable style={[styles.link, { backgroundColor: colors.gold }]} onPress={() => router.replace('/auth/login')}>
+          <Text style={[styles.linkTxt, { color: colors.core }]}>Go to Login</Text>
         </Pressable>
       </Section>
     </View>
