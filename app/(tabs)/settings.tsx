@@ -1,15 +1,36 @@
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch, Pressable } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
 import { colors } from '@/theme/colors';
 import { useRouter } from 'expo-router';
 import { signOut } from '@/services/auth';
 
-function Row({ label }: { label: string }) {
+const SETTINGS_KEYS = {
+  DARK_MODE: 'settings_dark_mode',
+  WIFI_ONLY: 'settings_wifi_only',
+  EMBED_ANNOTATIONS: 'settings_embed_annotations',
+};
+
+function Row({ label, storageKey }: { label: string; storageKey: string }) {
+  const [value, setValue] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(storageKey).then((stored) => {
+      if (stored !== null) setValue(stored === 'true');
+    });
+  }, [storageKey]);
+
+  const handleToggle = async (newValue: boolean) => {
+    setValue(newValue);
+    await AsyncStorage.setItem(storageKey, String(newValue));
+  };
+
   return (
     <View style={rowStyles.row}>
       <Text style={rowStyles.label}>{label}</Text>
-      <Switch />
+      <Switch value={value} onValueChange={handleToggle} />
     </View>
   );
 }
@@ -25,9 +46,9 @@ export default function SettingsScreen() {
         <Text style={styles.li}>• Vapi: Not linked</Text>
       </Section>
       <Section title="Preferences">
-        <Row label="Dark Mode" />
-        <Row label="Auto-upload on Wi-Fi only" />
-        <Row label="Embed annotations in report exports" />
+        <Row label="Dark Mode" storageKey={SETTINGS_KEYS.DARK_MODE} />
+        <Row label="Auto-upload on Wi-Fi only" storageKey={SETTINGS_KEYS.WIFI_ONLY} />
+        <Row label="Embed annotations in report exports" storageKey={SETTINGS_KEYS.EMBED_ANNOTATIONS} />
       </Section>
       <Section title="Admin">
         <Pressable style={styles.link} onPress={() => router.push('/admin/prompts')}>

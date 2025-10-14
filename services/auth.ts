@@ -2,8 +2,9 @@
 import { supabase } from '@/utils/supabase';
 import * as SecureStore from 'expo-secure-store';
 
-const DEV_EMAIL = 'john@claimsiq.ai';
-const DEV_PASS = 'admin123';
+// Use environment variables for dev credentials (never commit actual credentials to repo)
+const DEV_EMAIL = process.env.EXPO_PUBLIC_DEV_EMAIL || '';
+const DEV_PASS = process.env.EXPO_PUBLIC_DEV_PASSWORD || '';
 
 const KEY_EMAIL = 'dev_email';
 const KEY_PASS = 'dev_pass';
@@ -26,10 +27,10 @@ export async function signUpAdmin(email: string, password: string) {
   return uid;
 }
 
-export async function getUserIdByEmail(email: string) {
+export async function getUserIdByEmail(email: string): Promise<string | null> {
   const { data, error } = await supabase.from('profiles').select('id').eq('email', email).maybeSingle();
   if (error) return null;
-  return (data?.id as string) ?? null;
+  return data?.id ?? null;
 }
 
 export async function getProfile(uid: string) {

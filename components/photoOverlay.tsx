@@ -2,18 +2,7 @@
 import { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, Rect, Path, Paint, Group } from '@shopify/react-native-skia';
-
-type BBox = { x: number; y: number; w: number; h: number };
-type Pts = [number, number][];
-type Shape = { type: 'bbox'; box: BBox } | { type: 'polygon'; points: Pts };
-
-type Detection = {
-  id: string;
-  label: string;
-  severity?: 'minor' | 'moderate' | 'severe' | 'uncertain';
-  confidence?: number;
-  shape: Shape;
-};
+import { Detection } from '@/services/media';
 
 export default function PhotoOverlay({
   detections,

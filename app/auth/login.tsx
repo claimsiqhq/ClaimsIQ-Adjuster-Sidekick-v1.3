@@ -6,8 +6,8 @@ import { signIn, signUpAdmin, setDevCreds, getDevCreds } from '@/services/auth';
 import { useRouter } from 'expo-router';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('john@claimsiq.ai');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const router = useRouter();
@@ -76,7 +76,7 @@ export default function LoginScreen() {
         </Pressable>
       </View>
 
-      <Text style={styles.hint}>Dev seed: john@claimsiq.ai / admin123</Text>
+      <Text style={styles.hint}>Configure dev credentials in .env file</Text>
     </View>
   );
 }

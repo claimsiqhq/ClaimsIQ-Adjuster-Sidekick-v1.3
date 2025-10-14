@@ -3,6 +3,36 @@ import { supabase } from '@/utils/supabase';
 export type MediaType = 'photo' | 'lidar_room';
 export type MediaStatus = 'pending' | 'uploading' | 'uploaded' | 'annotating' | 'done' | 'error';
 
+export interface PhotoQC {
+  blur_score?: number;
+  glare?: boolean;
+  underexposed?: boolean;
+  distance_hint_m?: number;
+}
+
+export interface Detection {
+  id: string;
+  label: string;
+  friendly?: string;
+  severity?: 'minor' | 'moderate' | 'severe' | 'uncertain';
+  confidence?: number;
+  evidence?: string;
+  tags?: string[];
+  shape: {
+    type: 'bbox';
+    box: { x: number; y: number; w: number; h: number };
+  } | {
+    type: 'polygon';
+    points: [number, number][];
+  };
+}
+
+export interface AnnotationJSON {
+  detections: Detection[];
+  photo_qc?: PhotoQC;
+  model?: { name: string; ts: string };
+}
+
 export interface MediaItem {
   id: string;
   created_at: string;
@@ -14,10 +44,19 @@ export interface MediaItem {
   label: string | null;
   storage_path: string | null;
   anno_count: number | null;
-  qc: any | null;
-  annotation_json?: any | null;
-  redaction_json?: any | null;
-  derived?: any | null;
+  qc: PhotoQC | null;
+  annotation_json?: AnnotationJSON | null;
+  redaction_json?: Record<string, unknown> | null;
+  derived?: Record<string, unknown> | null;
+  last_error?: string | null;
+}
+
+export interface MediaFilters {
+  type?: MediaType;
+  status?: MediaStatus;
+  claim_id?: string;
+  user_id?: string;
+  org_id?: string;
 }
 
 export async function uploadPhotoToStorage(localUri: string, path: string): Promise<string> {
@@ -34,8 +73,18 @@ export async function insertMediaRow(row: Partial<MediaItem>): Promise<MediaItem
   return data as MediaItem;
 }
 
-export async function listMedia(limit = 100): Promise<MediaItem[]> {
-  const { data, error } = await supabase.from('media').select('*').order('created_at', { ascending: false }).limit(limit);
+export async function listMedia(limit = 100, filters?: MediaFilters): Promise<MediaItem[]> {
+  let query = supabase.from('media').select('*');
+  
+  if (filters?.type) query = query.eq('type', filters.type);
+  if (filters?.status) query = query.eq('status', filters.status);
+  if (filters?.claim_id) query = query.eq('claim_id', filters.claim_id);
+  if (filters?.user_id) query = query.eq('user_id', filters.user_id);
+  if (filters?.org_id) query = query.eq('org_id', filters.org_id);
+  
+  query = query.order('created_at', { ascending: false }).limit(limit);
+  
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as MediaItem[];
 }
@@ -58,7 +107,10 @@ export async function batchAssignToClaim(mediaIds: string[], claim_id: string | 
   if (error) throw error;
 }
 
-export async function saveRedactions(mediaId: string, redaction_json: any) {
+export async function saveRedactions(mediaId: string, redaction_json: Record<string, unknown>) {
   const { error } = await supabase.from('media').update({ redaction_json }).eq('id', mediaId);
   if (error) throw error;
 }
+
+// Alias for backward compatibility with gallery.ts
+export const assignMediaToClaim = batchAssignToClaim;

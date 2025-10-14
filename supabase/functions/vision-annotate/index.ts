@@ -112,19 +112,19 @@ Deno.serve(async (req) => {
     const sysText = render(systemTpl, { IMAGE_URL, SCENE_TAGS });
     const usrText = render(userTpl, { IMAGE_URL, SCENE_TAGS });
 
-    // 3) OpenAI Responses API
-    const res = await fetch("https://api.openai.com/v1/responses", {
+    // 3) OpenAI Chat Completions API (correct endpoint)
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: settings.model ?? "gpt-4o-mini",
-        input: [
+        messages: [
           { role: "system", content: sysText },
           {
             role: "user",
             content: [
-              { type: "input_text", text: usrText },
-              { type: "input_image", image_url: IMAGE_URL },
+              { type: "text", text: usrText },
+              { type: "image_url", image_url: { url: IMAGE_URL } },
             ],
           },
         ],
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
     });
     if (!res.ok) throw new Error(await res.text());
     const out = await res.json();
-    const raw = out?.output?.[0]?.content?.[0]?.text ?? out?.output_text ?? "";
+    const raw = out?.choices?.[0]?.message?.content ?? "";
     if (!raw) throw new Error("Empty model output");
 
     let parsed: AnnotationJSON;

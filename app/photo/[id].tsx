@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { colors } from '@/theme/colors';
-import { getMediaById, getPublicUrl, MediaItem } from '@/services/media';
+import { getMediaById, getPublicUrl, MediaItem, Detection } from '@/services/media';
 import PhotoOverlay from '@/components/PhotoOverlay';
 
 export default function PhotoDetail() {
@@ -28,7 +28,7 @@ export default function PhotoDetail() {
   const detections = useMemo(() => {
     const raw = media?.annotation_json;
     const list = Array.isArray(raw?.detections) ? raw.detections : [];
-    return list as any[];
+    return list as Detection[];
   }, [media]);
 
   const w = Dimensions.get('window').width;
@@ -64,13 +64,13 @@ export default function PhotoDetail() {
       <View style={{ alignItems: 'center', marginBottom: 12 }}>
         <View style={{ width: imgW, height: imgH }}>
           <Image source={{ uri: imgUrl }} style={{ width: imgW, height: imgH, borderRadius: 8 }} resizeMode="cover" />
-          <PhotoOverlay width={imgW} height={imgH} detections={detections as any} visible={overlay} />
+          <PhotoOverlay width={imgW} height={imgH} detections={detections} visible={overlay} />
         </View>
       </View>
 
       <View style={styles.panel}>
         <Text style={styles.h}>Detections ({detections.length})</Text>
-        {detections.map((d: any) => (
+        {detections.map((d) => (
           <View key={d.id} style={styles.det}>
             <Text style={styles.detTitle}>
               {d.friendly ?? d.label} {typeof d.confidence === 'number' ? `· ${(d.confidence * 100).toFixed(0)}%` : ''}

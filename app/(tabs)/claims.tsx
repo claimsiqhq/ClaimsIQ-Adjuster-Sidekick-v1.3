@@ -1,28 +1,80 @@
-import { ScrollView, StyleSheet, View, Text, TextInput, Pressable } from "react-native";
+import { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, View, Text, TextInput, Pressable, ActivityIndicator, FlatList } from "react-native";
 import Header from "../../components/Header";
 import Section from "../../components/Section";
 import { colors } from "../../theme/colors";
+import { listClaimsLike, Claim } from "../../services/claims";
+import { useRouter } from "expo-router";
 
-const Item = ({ title, subtitle, tag }: { title: string; subtitle: string; tag: string }) => (
-  <Pressable style={styles.card}>
+const Item = ({ claim, onPress }: { claim: Claim; onPress: () => void }) => (
+  <Pressable style={styles.card} onPress={onPress}>
     <View style={{ flex: 1 }}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.sub}>{subtitle}</Text>
-      <View style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
+      <Text style={styles.title}>Claim #{claim.claim_number || '(unnamed)'}</Text>
+      <Text style={styles.sub}>{new Date(claim.created_at).toLocaleDateString()}</Text>
     </View>
   </Pressable>
 );
 
 export default function ClaimsScreen() {
+  const [query, setQuery] = useState('');
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  async function loadClaims(searchQuery = '') {
+    try {
+      setLoading(true);
+      const results = await listClaimsLike(searchQuery, 50);
+      setClaims(results);
+    } catch (e) {
+      console.error('Failed to load claims:', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadClaims();
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadClaims(query);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   return (
     <ScrollView style={styles.container} contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled">
       <Header title="Claims" subtitle="Search, filter, and jump into a file." />
       <View style={styles.searchWrap}>
-        <TextInput placeholder="Search claim #, insured, address…" placeholderTextColor="#9AA0A6" style={styles.input} />
+        <TextInput 
+          placeholder="Search claim #, insured, address…" 
+          placeholderTextColor="#9AA0A6" 
+          style={styles.input}
+          value={query}
+          onChangeText={setQuery}
+        />
       </View>
-      <Section title="Open">
-        <Item title="Claim #A132 — Jane Doe" subtitle="22 Pinecrest Rd · Hail" tag="Due Today" />
-        <Item title="Claim #B221 — Alex Kim" subtitle="9 Lakeview Ave · Water" tag="Scheduled" />
+      <Section title={loading ? "Loading..." : `Claims (${claims.length})`}>
+        {loading ? (
+          <View style={{ padding: 16, alignItems: 'center' }}>
+            <ActivityIndicator />
+          </View>
+        ) : claims.length === 0 ? (
+          <Text style={styles.sub}>No claims found. Start by assigning photos to a claim.</Text>
+        ) : (
+          claims.map((claim) => (
+            <Item 
+              key={claim.id} 
+              claim={claim} 
+              onPress={() => {
+                // TODO: Navigate to claim detail screen
+                console.log('View claim:', claim.id);
+              }}
+            />
+          ))
+        )}
       </Section>
     </ScrollView>
   );
