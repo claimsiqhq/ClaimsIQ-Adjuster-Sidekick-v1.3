@@ -5,9 +5,10 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "ios": "expo start --ios",
+    "ios": "expo run:ios",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "android": "expo run:android"
   },
   "jest": {
     "preset": "jest-expo"
