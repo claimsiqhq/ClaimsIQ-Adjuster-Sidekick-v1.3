@@ -7,8 +7,7 @@
     "reset-project": "node ./scripts/reset-project.js",
     "ios": "expo run:ios",
     "test": "jest --watchAll",
-    "lint": "expo lint",
-    "android": "expo run:android"
+    "lint": "expo lint"
   },
   "jest": {
     "preset": "jest-expo"
