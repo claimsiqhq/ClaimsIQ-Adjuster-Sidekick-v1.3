@@ -70,6 +70,7 @@ npm install
 ```
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_API_KEY=your_supabase_anon_key
+EXPO_PUBLIC_WEATHER_API_KEY=your_weatherapi_com_api_key
 ```
 
 3. Start the development server:
@@ -140,6 +141,10 @@ Add to `.assets/images/`:
 - `app.json` - Expo and iOS-specific settings
 - `eas.json` - Build configuration for EAS
 - `tsconfig.json` - TypeScript configuration
+
+### Weather API Setup
+
+The Today screen displays local weather conditions and safety guidance by calling [WeatherAPI.com](https://www.weatherapi.com/). Generate an API key from your chosen provider and populate `EXPO_PUBLIC_WEATHER_API_KEY` in `.env`. Without this variable the app will surface a notice explaining why weather insights are unavailable.
 
 ### iOS Permissions
 
