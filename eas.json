@@ -1,13 +1,12 @@
 {
-  "cli": { "version": ">= 16.21.0" },
+  "cli": { 
+    "version": ">= 16.21.0",
+    "appVersionSource": "remote"
+  },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://lyppkkpawalcchbgbkxg.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5cHBra3Bhd2FsY2NoYmdia3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNzcxMjEsImV4cCI6MjA3NTk1MzEyMX0.g27leGoCVdfAQq0LhoXnI2N4nwu5LK3mPH0oE_MEzDs"
-      },
       "ios": {
         "simulator": false,
         "buildConfiguration": "Debug"
@@ -15,20 +14,12 @@
     },
     "preview": {
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://lyppkkpawalcchbgbkxg.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5cHBra3Bhd2FsY2NoYmdia3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNzcxMjEsImV4cCI6MjA3NTk1MzEyMX0.g27leGoCVdfAQq0LhoXnI2N4nwu5LK3mPH0oE_MEzDs"
-      },
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release"
       }
     },
     "production": {
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://lyppkkpawalcchbgbkxg.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5cHBra3Bhd2FsY2NoYmdia3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNzcxMjEsImV4cCI6MjA3NTk1MzEyMX0.g27leGoCVdfAQq0LhoXnI2N4nwu5LK3mPH0oE_MEzDs"
-      },
       "ios": {
         "buildConfiguration": "Release"
       }
