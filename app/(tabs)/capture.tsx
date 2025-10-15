@@ -105,11 +105,20 @@ export default function CaptureScreen() {
             <Text style={styles.tileH}>Photo</Text>
             <Text style={styles.tileP}>Open camera, upload, annotate</Text>
           </Pressable>
-          <Pressable style={[styles.tile, styles.b]} onPress={() => Alert.alert('LiDAR', 'RoomPlan requires iOS Dev Client. Coming next.')}>
+          <Pressable style={[styles.tile, styles.b]} onPress={() => {
+            if (selected.size > 0) {
+              const selectedArray = Array.from(selected);
+              const firstMedia = items.find(i => i.id === selectedArray[0]);
+              const claimId = firstMedia?.claim_id;
+              router.push(claimId ? `/lidar/scan?claimId=${claimId}` : '/lidar/scan');
+            } else {
+              router.push('/lidar/scan');
+            }
+          }}>
             <Text style={styles.tileH}>LiDAR</Text>
-            <Text style={styles.tileP}>RoomPlan scan + measurements</Text>
+            <Text style={styles.tileP}>3D Room Scan</Text>
           </Pressable>
-          <Pressable style={[styles.tile, styles.c]} onPress={() => Alert.alert('Document', 'PDF → FNOL coming next.')}>
+          <Pressable style={[styles.tile, styles.c]} onPress={() => router.push('/document/upload')}>
             <Text style={styles.tileH}>Document</Text>
             <Text style={styles.tileP}>Upload PDF → FNOL</Text>
           </Pressable>

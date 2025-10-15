@@ -5,6 +5,8 @@ import Section from "@/components/Section";
 import { colors } from "@/theme/colors";
 import { supabase } from "@/utils/supabase";
 import { useRouter } from "expo-router";
+import { getCurrentLocation } from "@/services/location";
+import { getWeather, getWeatherAlerts, isSafeForRoofInspection, Weather, WeatherAlert } from "@/services/weather";
 
 interface ClaimSummary {
   id: string;
@@ -18,6 +20,8 @@ export default function TodayScreen() {
   const [claims, setClaims] = useState<ClaimSummary[]>([]);
   const [stats, setStats] = useState({ total: 0, inProgress: 0, dueToday: 0 });
   const [loading, setLoading] = useState(true);
+  const [weather, setWeather] = useState<Weather | null>(null);
+  const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlert[]>([]);
 
   useEffect(() => {
     loadTodayData();
@@ -26,6 +30,17 @@ export default function TodayScreen() {
   async function loadTodayData() {
     try {
       setLoading(true);
+      
+      // Load weather for current location
+      try {
+        const location = await getCurrentLocation();
+        const currentWeather = await getWeather(location.latitude, location.longitude);
+        const alerts = await getWeatherAlerts(location.latitude, location.longitude);
+        setWeather(currentWeather);
+        setWeatherAlerts(alerts);
+      } catch (error) {
+        console.log('Weather fetch failed:', error);
+      }
       
       // Load all claims
       const { data: allClaims, error } = await supabase
@@ -140,11 +155,40 @@ export default function TodayScreen() {
         </Pressable>
       </Section>
 
-      <Section title="Weather & Route">
-        <Text style={styles.p}>
-          Weather integration coming soon. Check your local forecast before heading out to inspect properties.
-        </Text>
-      </Section>
+      {weather && (
+        <Section title="Weather Conditions">
+          <View style={styles.weatherCard}>
+            <View style={styles.weatherMain}>
+              <Text style={styles.weatherTemp}>{Math.round(weather.temperature)}°F</Text>
+              <Text style={styles.weatherCondition}>{weather.condition}</Text>
+              <Text style={styles.weatherWind}>Wind: {Math.round(weather.windSpeed)} mph</Text>
+            </View>
+            
+            {isSafeForRoofInspection(weather).safe ? (
+              <View style={styles.safetyBadge}>
+                <Text style={styles.safetyText}>✓ Safe for roof work</Text>
+              </View>
+            ) : (
+              <View style={[styles.safetyBadge, { backgroundColor: '#FEE2E2' }]}>
+                <Text style={[styles.safetyText, { color: '#DC2626' }]}>
+                  ⚠️ {isSafeForRoofInspection(weather).reason}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {weatherAlerts.length > 0 && (
+            <View style={styles.alertsContainer}>
+              {weatherAlerts.map((alert, index) => (
+                <View key={index} style={[styles.alertCard, getSeverityColor(alert.severity)]}>
+                  <Text style={styles.alertHeadline}>{alert.headline}</Text>
+                  <Text style={styles.alertDesc} numberOfLines={2}>{alert.description}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </Section>
+      )}
     </ScrollView>
   );
 }
@@ -242,4 +286,69 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   ctaText: { color: colors.white, fontWeight: "600", fontSize: 15 },
+  weatherCard: {
+    backgroundColor: colors.white,
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    marginBottom: 12,
+  },
+  weatherMain: {
+    marginBottom: 12,
+  },
+  weatherTemp: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  weatherCondition: {
+    fontSize: 16,
+    color: colors.core,
+    marginTop: 4,
+  },
+  weatherWind: {
+    fontSize: 13,
+    color: '#5F6771',
+    marginTop: 4,
+  },
+  safetyBadge: {
+    backgroundColor: '#D1FAE5',
+    padding: 10,
+    borderRadius: 8,
+  },
+  safetyText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  alertsContainer: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  alertCard: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  alertHeadline: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78350F',
+    marginBottom: 4,
+  },
+  alertDesc: {
+    fontSize: 12,
+    color: '#92400E',
+  },
 });
+
+function getSeverityColor(severity: string) {
+  switch (severity) {
+    case 'extreme': return { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' };
+    case 'severe': return { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' };
+    default: return { backgroundColor: '#DBEAFE', borderColor: '#BFDBFE' };
+  }
+}
