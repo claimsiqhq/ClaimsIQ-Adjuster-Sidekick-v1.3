@@ -68,10 +68,7 @@ export default function ClaimsScreen() {
             <Item 
               key={claim.id} 
               claim={claim} 
-              onPress={() => {
-                // TODO: Navigate to claim detail screen
-                console.log('View claim:', claim.id);
-              }}
+              onPress={() => router.push(`/claim/${claim.id}`)}
             />
           ))
         )}

@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import { colors } from "@/theme/colors";
 import { Platform } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   return (
@@ -26,67 +27,51 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="today"
         options={{
           title: "Today",
-          tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="capture"
         options={{
           title: "Capture",
-          tabBarIcon: ({ color }) => <TabIcon name="camera" color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="camera-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="claims"
         options={{
           title: "Claims",
-          tabBarIcon: ({ color }) => <TabIcon name="folder" color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="folder-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="map"
         options={{
           title: "Map",
-          tabBarIcon: ({ color }) => <TabIcon name="map" color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
           title: "Explore",
-          tabBarIcon: ({ color }) => <TabIcon name="search" color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
-          tabBarIcon: ({ color }) => <TabIcon name="cog" color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
         }}
       />
     </Tabs>
   );
-}
-
-// Simple icon component using emoji as placeholders
-function TabIcon({ name, color }: { name: string; color: string }) {
-  const icons: Record<string, string> = {
-    home: "🏠",
-    calendar: "📅",
-    camera: "📷",
-    folder: "📁",
-    map: "🗺️",
-    search: "🔍",
-    cog: "⚙️",
-  };
-  
-  const { Text } = require("react-native");
-  return <Text style={{ fontSize: 24, color }}>{icons[name] || "📱"}</Text>;
 }
