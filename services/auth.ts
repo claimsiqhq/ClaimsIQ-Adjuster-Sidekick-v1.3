@@ -1,5 +1,4 @@
 // services/auth.ts
-import { Platform } from 'react-native';
 import { supabase } from '@/utils/supabase';
 import * as SecureStore from 'expo-secure-store';
 
@@ -10,28 +9,6 @@ const DEV_PASS = process.env.EXPO_PUBLIC_DEV_PASSWORD || '';
 const KEY_EMAIL = 'dev_email';
 const KEY_PASS = 'dev_pass';
 const KEY_REMEMBER = 'dev_remember';
-
-// Fallback storage for web platform
-const webStorage = {
-  getItemAsync: async (key: string) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem(key);
-    }
-    return null;
-  },
-  setItemAsync: async (key: string, value: string) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(key, value);
-    }
-  },
-  deleteItemAsync: async (key: string) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.removeItem(key);
-    }
-  }
-};
-
-const storage = Platform.OS === 'web' ? webStorage : SecureStore;
 
 export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -87,21 +64,21 @@ export async function signOut() {
 }
 
 export async function getDevCreds() {
-  const r = await storage.getItemAsync(KEY_REMEMBER);
+  const r = await SecureStore.getItemAsync(KEY_REMEMBER);
   if (r !== '1') return { email: DEV_EMAIL, password: DEV_PASS, remember: false };
-  const email = (await storage.getItemAsync(KEY_EMAIL)) ?? DEV_EMAIL;
-  const password = (await storage.getItemAsync(KEY_PASS)) ?? DEV_PASS;
+  const email = (await SecureStore.getItemAsync(KEY_EMAIL)) ?? DEV_EMAIL;
+  const password = (await SecureStore.getItemAsync(KEY_PASS)) ?? DEV_PASS;
   return { email, password, remember: true };
 }
 
 export async function setDevCreds(email: string, password: string, remember: boolean) {
   if (remember) {
-    await storage.setItemAsync(KEY_EMAIL, email);
-    await storage.setItemAsync(KEY_PASS, password);
-    await storage.setItemAsync(KEY_REMEMBER, '1');
+    await SecureStore.setItemAsync(KEY_EMAIL, email);
+    await SecureStore.setItemAsync(KEY_PASS, password);
+    await SecureStore.setItemAsync(KEY_REMEMBER, '1');
   } else {
-    await storage.deleteItemAsync(KEY_EMAIL);
-    await storage.deleteItemAsync(KEY_PASS);
-    await storage.deleteItemAsync(KEY_REMEMBER);
+    await SecureStore.deleteItemAsync(KEY_EMAIL);
+    await SecureStore.deleteItemAsync(KEY_PASS);
+    await SecureStore.deleteItemAsync(KEY_REMEMBER);
   }
 }
