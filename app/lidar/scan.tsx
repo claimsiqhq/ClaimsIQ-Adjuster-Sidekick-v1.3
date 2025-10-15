@@ -1,22 +1,11 @@
-// app/lidar/scan.tsx
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, Dimensions } from 'react-native';
+// app/lidar/scan.tsx - Updated with preview mode
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, Animated, Dimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/theme/colors';
 import { LiDARScannerView, lidarScanner } from '@/modules/lidar';
-import { startLiDARScan, stopLiDARScan, saveScan, checkLiDARSupport } from '@/services/lidar';
+import { startLiDARScan, stopLiDARScan, saveScan, checkLiDARSupport, getScanStats } from '@/services/lidar';
 import ModelViewer from '@/components/ModelViewer';
-
-type ScanResult = {
-  pointCount: number;
-  meshCount: number;
-  filePath: string;
-  dimensions?: {
-    width: number;
-    height: number;
-    depth: number;
-  };
-};
 
 export default function LiDARScanScreen() {
   const { claimId } = useLocalSearchParams<{ claimId: string }>();
@@ -26,8 +15,9 @@ export default function LiDARScanScreen() {
   const [stats, setStats] = useState({ pointCount: 0, meshCount: 0 });
   const [saving, setSaving] = useState(false);
   const [scanDuration, setScanDuration] = useState(0);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [mode, setMode] = useState<'scanning' | 'preview'>('scanning');
+  const [scanResult, setScanResult] = useState<any>(null);
+  const [previewMode, setPreviewMode] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     checkSupport();
@@ -35,13 +25,31 @@ export default function LiDARScanScreen() {
 
   useEffect(() => {
     if (scanning) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
       const interval = setInterval(async () => {
-        const currentStats = await lidarScanner.getScanStats();
+        const currentStats = await getScanStats();
         setStats(currentStats);
         setScanDuration(prev => prev + 1);
       }, 1000);
 
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        pulseAnim.setValue(1);
+      };
     }
   }, [scanning]);
 
@@ -64,7 +72,7 @@ export default function LiDARScanScreen() {
       setScanning(true);
       setScanDuration(0);
       setStats({ pointCount: 0, meshCount: 0 });
-      setMode('scanning');
+      setPreviewMode(false);
     } catch (error: any) {
       Alert.alert('Error', error.message);
     }
@@ -72,10 +80,10 @@ export default function LiDARScanScreen() {
 
   async function handleStopScan() {
     try {
-      const result = await stopLiDARScan();
+      const scanData = await stopLiDARScan();
       setScanning(false);
-      setScanResult(result);
-      setMode('preview');
+      setScanResult(scanData);
+      setPreviewMode(true);
     } catch (error: any) {
       Alert.alert('Error', 'Failed to stop scan: ' + error.message);
     }
@@ -93,12 +101,15 @@ export default function LiDARScanScreen() {
       await saveScan(scanResult, claimId, label);
 
       Alert.alert(
-        'Scan Complete!',
-        `Successfully captured ${scanResult.pointCount.toLocaleString()} points.\n\nThe 3D scan has been saved to your claim.`,
+        'Scan Saved!',
+        `Captured ${scanResult.pointCount.toLocaleString()} points\n\nDimensions:\n` +
+        `Width: ${(scanResult.dimensions.width * 3.281).toFixed(2)} ft\n` +
+        `Height: ${(scanResult.dimensions.height * 3.281).toFixed(2)} ft\n` +
+        `Depth: ${(scanResult.dimensions.depth * 3.281).toFixed(2)} ft`,
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to save scan: ' + error.message);
+      Alert.alert('Error', 'Failed to save: ' + error.message);
     } finally {
       setSaving(false);
     }
@@ -121,47 +132,81 @@ export default function LiDARScanScreen() {
           This device does not have a LiDAR sensor.{'\n'}
           Requires iPhone 12 Pro or newer.
         </Text>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </Pressable>
       </View>
     );
   }
 
-  const { width } = Dimensions.get('window');
+  // Preview mode - show model and dimensions
+  if (previewMode && scanResult) {
+    const screenWidth = Dimensions.get('window').width;
+    
+    return (
+      <View style={styles.container}>
+        <View style={styles.previewHeader}>
+          <Text style={styles.previewTitle}>Scan Complete</Text>
+          <Text style={styles.previewSubtitle}>
+            {scanResult.pointCount.toLocaleString()} points captured
+          </Text>
+        </View>
 
+        <ModelViewer
+          modelPath={scanResult.filePath}
+          dimensions={scanResult.dimensions}
+          width={screenWidth}
+          height={400}
+        />
+
+        <View style={styles.previewControls}>
+          <Pressable
+            style={[styles.button, styles.buttonSecondary]}
+            onPress={() => {
+              setPreviewMode(false);
+              setScanResult(null);
+            }}
+          >
+            <Text style={styles.buttonTextDark}>Scan Again</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.button, styles.buttonPrimary, saving && styles.buttonDisabled]}
+            onPress={handleSaveScan}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.buttonText}>Save to Claim</Text>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // Scanning mode - show AR view
   return (
     <View style={styles.container}>
-      {/* AR View or Preview */}
-      <View style={styles.viewContainer}>
-        {mode === 'scanning' ? (
-          scanning ? (
-            <LiDARScannerView style={styles.arView} />
-          ) : (
-            <View style={styles.arViewPlaceholder}>
-              <Text style={styles.placeholderText}>Tap Start to begin scanning</Text>
-              <Text style={styles.placeholderSubtext}>
-                Point your camera at the room and move slowly
-              </Text>
-            </View>
-          )
+      {/* AR View */}
+      <View style={styles.arViewContainer}>
+        {scanning ? (
+          <LiDARScannerView style={styles.arView} />
         ) : (
-          scanResult && (
-            <ModelViewer
-              modelPath={scanResult.filePath}
-              dimensions={scanResult.dimensions}
-              width={width}
-              height={500}
-            />
-          )
+          <View style={styles.arViewPlaceholder}>
+            <Text style={styles.placeholderText}>Tap Start to begin scanning</Text>
+            <Text style={styles.placeholderSubtext}>
+              Point your camera at the room and move slowly
+            </Text>
+          </View>
         )}
       </View>
 
-      {/* Stats Overlay (scanning mode only) */}
-      {scanning && mode === 'scanning' && (
+      {/* Stats Overlay */}
+      {scanning && (
         <View style={styles.statsOverlay}>
+          <Animated.View style={[styles.scanningIndicator, { transform: [{ scale: pulseAnim }] }]}>
+            <Text style={styles.scanningText}>●</Text>
+          </Animated.View>
           <View style={styles.statsCard}>
-            <Text style={styles.statsText}>● SCANNING</Text>
             <Text style={styles.statsText}>Points: {stats.pointCount.toLocaleString()}</Text>
             <Text style={styles.statsText}>Meshes: {stats.meshCount}</Text>
             <Text style={styles.statsText}>Time: {scanDuration}s</Text>
@@ -169,8 +214,8 @@ export default function LiDARScanScreen() {
         </View>
       )}
 
-      {/* Instructions (scanning mode only) */}
-      {!scanning && mode === 'scanning' && (
+      {/* Instructions */}
+      {!scanning && (
         <View style={styles.instructions}>
           <Text style={styles.instructionTitle}>How to Scan:</Text>
           <Text style={styles.instructionText}>1. Tap "Start Scanning"</Text>
@@ -182,42 +227,22 @@ export default function LiDARScanScreen() {
 
       {/* Controls */}
       <View style={styles.controls}>
-        {mode === 'scanning' ? (
-          !scanning ? (
-            <>
-              <Pressable style={styles.startButton} onPress={handleStartScan}>
-                <Text style={styles.startButtonText}>Start Scanning</Text>
-              </Pressable>
-              <Pressable style={styles.cancelButton} onPress={() => router.back()}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
-            </>
-          ) : (
-            <Pressable style={styles.stopButton} onPress={handleStopScan}>
-              <Text style={styles.stopButtonText}>Complete Scan</Text>
-            </Pressable>
-          )
+        {!scanning ? (
+          <Pressable style={styles.startButton} onPress={handleStartScan}>
+            <Text style={styles.startButtonText}>Start Scanning</Text>
+          </Pressable>
         ) : (
-          <>
-            <Pressable
-              style={[styles.saveButton, saving && styles.buttonDisabled]}
-              onPress={handleSaveScan}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color={colors.white} />
-              ) : (
-                <Text style={styles.saveButtonText}>Save to Claim</Text>
-              )}
-            </Pressable>
-            <Pressable style={styles.retryButton} onPress={() => {
-              setScanResult(null);
-              setMode('scanning');
-            }}>
-              <Text style={styles.retryButtonText}>Scan Again</Text>
-            </Pressable>
-          </>
+          <Pressable
+            style={styles.stopButton}
+            onPress={handleStopScan}
+          >
+            <Text style={styles.stopButtonText}>Complete Scan</Text>
+          </Pressable>
         )}
+
+        <Pressable style={styles.cancelButton} onPress={() => router.back()}>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -252,20 +277,54 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 20,
   },
-  backButton: {
+  previewHeader: {
+    padding: 20,
     backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
   },
-  backButtonText: {
+  previewTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 4,
+  },
+  previewSubtitle: {
+    fontSize: 14,
+    color: colors.white,
+    opacity: 0.9,
+  },
+  previewControls: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    backgroundColor: colors.bgSoft,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonPrimary: {
+    backgroundColor: colors.primary,
+  },
+  buttonSecondary: {
+    backgroundColor: colors.gold,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  buttonText: {
     color: colors.white,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  viewContainer: {
+  buttonTextDark: {
+    color: colors.core,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  arViewContainer: {
     flex: 1,
   },
   arView: {
@@ -296,12 +355,18 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
   },
+  scanningIndicator: {
+    marginBottom: 12,
+  },
+  scanningText: {
+    fontSize: 20,
+    color: colors.error,
+  },
   statsCard: {
-    backgroundColor: 'rgba(124, 58, 237, 0.95)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 20,
-    gap: 4,
   },
   statsText: {
     fontSize: 14,
@@ -360,28 +425,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
-  saveButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  retryButton: {
-    backgroundColor: colors.gold,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  retryButtonText: {
-    color: colors.core,
-    fontSize: 15,
-    fontWeight: '600',
-  },
   cancelButton: {
     backgroundColor: colors.textLight,
     paddingVertical: 14,
@@ -392,8 +435,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 15,
     fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
 });
