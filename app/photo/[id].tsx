@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { colors } from '@/theme/colors';
 import { getMediaById, getPublicUrl, MediaItem, Detection } from '@/services/media';
-import PhotoOverlay from '@/components/PhotoOverlay';
+import PhotoOverlay from '@/components/photoOverlay';
 
 export default function PhotoDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
