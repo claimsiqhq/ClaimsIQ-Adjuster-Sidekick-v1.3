@@ -99,3 +99,4 @@ export const lidarScanner = new LiDARScannerModule();
 // Native view component
 export const LiDARScannerView = requireNativeComponent<any>('LiDARScannerView');
 
+

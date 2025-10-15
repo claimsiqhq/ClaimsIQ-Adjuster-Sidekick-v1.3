@@ -167,3 +167,4 @@ export async function deleteLiDARScan(scanId: string): Promise<void> {
   if (error) throw error;
 }
 
+

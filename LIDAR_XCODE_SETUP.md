@@ -115,3 +115,4 @@ console.log('LiDAR available:', available);
 
 Should return `true` on LiDAR-capable devices.
 
+
