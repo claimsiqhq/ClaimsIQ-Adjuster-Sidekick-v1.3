@@ -15,6 +15,8 @@ interface ClaimSummary {
   created_at: string;
 }
 
+const WEATHER_API_CONFIGURED = Boolean(process.env.EXPO_PUBLIC_WEATHER_API_KEY);
+
 export default function TodayScreen() {
   const router = useRouter();
   const [claims, setClaims] = useState<ClaimSummary[]>([]);
@@ -22,6 +24,7 @@ export default function TodayScreen() {
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlert[]>([]);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
 
   useEffect(() => {
     loadTodayData();
@@ -32,14 +35,32 @@ export default function TodayScreen() {
       setLoading(true);
       
       // Load weather for current location
-      try {
-        const location = await getCurrentLocation();
-        const currentWeather = await getWeather(location.latitude, location.longitude);
-        const alerts = await getWeatherAlerts(location.latitude, location.longitude);
-        setWeather(currentWeather);
-        setWeatherAlerts(alerts);
-      } catch (error) {
-        console.log('Weather fetch failed:', error);
+      setWeatherError(null);
+      if (!WEATHER_API_CONFIGURED) {
+        setWeather(null);
+        setWeatherAlerts([]);
+        setWeatherError('Add EXPO_PUBLIC_WEATHER_API_KEY to enable weather insights on the Today screen.');
+      } else {
+        try {
+          const location = await getCurrentLocation();
+          const currentWeather = await getWeather(location.latitude, location.longitude);
+          const alerts = await getWeatherAlerts(location.latitude, location.longitude);
+
+          if (currentWeather) {
+            setWeather(currentWeather);
+            setWeatherError(null);
+          } else {
+            setWeather(null);
+            setWeatherError('Weather data is temporarily unavailable. Please try again later.');
+          }
+
+          setWeatherAlerts(alerts);
+        } catch (error) {
+          console.log('Weather fetch failed:', error);
+          setWeather(null);
+          setWeatherAlerts([]);
+          setWeatherError('Unable to fetch weather for your current location.');
+        }
       }
       
       // Load all claims
@@ -155,29 +176,33 @@ export default function TodayScreen() {
         </Pressable>
       </Section>
 
-      {weather && (
+      {(WEATHER_API_CONFIGURED || weatherError) && (
         <Section title="Weather Conditions">
-          <View style={styles.weatherCard}>
-            <View style={styles.weatherMain}>
-              <Text style={styles.weatherTemp}>{Math.round(weather.temperature)}°F</Text>
-              <Text style={styles.weatherCondition}>{weather.condition}</Text>
-              <Text style={styles.weatherWind}>Wind: {Math.round(weather.windSpeed)} mph</Text>
-            </View>
-            
-            {isSafeForRoofInspection(weather).safe ? (
-              <View style={styles.safetyBadge}>
-                <Text style={styles.safetyText}>✓ Safe for roof work</Text>
+          {weather && (
+            <View style={styles.weatherCard}>
+              <View style={styles.weatherMain}>
+                <Text style={styles.weatherTemp}>{Math.round(weather.temperature)}°F</Text>
+                <Text style={styles.weatherCondition}>{weather.condition}</Text>
+                <Text style={styles.weatherWind}>Wind: {Math.round(weather.windSpeed)} mph</Text>
               </View>
-            ) : (
-              <View style={[styles.safetyBadge, { backgroundColor: '#FEE2E2' }]}>
-                <Text style={[styles.safetyText, { color: '#DC2626' }]}>
-                  ⚠️ {isSafeForRoofInspection(weather).reason}
-                </Text>
-              </View>
-            )}
-          </View>
 
-          {weatherAlerts.length > 0 && (
+              {isSafeForRoofInspection(weather).safe ? (
+                <View style={styles.safetyBadge}>
+                  <Text style={styles.safetyText}>✓ Safe for roof work</Text>
+                </View>
+              ) : (
+                <View style={[styles.safetyBadge, { backgroundColor: '#FEE2E2' }]}>
+                  <Text style={[styles.safetyText, { color: '#DC2626' }]}>⚠️ {isSafeForRoofInspection(weather).reason}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {!weather && weatherError && (
+            <Text style={styles.emptyText}>{weatherError}</Text>
+          )}
+
+          {weather && weatherAlerts.length > 0 && (
             <View style={styles.alertsContainer}>
               {weatherAlerts.map((alert, index) => (
                 <View key={index} style={[styles.alertCard, getSeverityColor(alert.severity)]}>
