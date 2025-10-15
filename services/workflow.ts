@@ -3,9 +3,8 @@
 
 import { supabase } from '@/utils/supabase';
 
-export interface InspectionStep {
+export interface WorkflowStep {
   id: string;
-  created_at: string;
   claim_id: string;
   title: string;
   kind: 'photo' | 'scan' | 'doc' | 'note' | 'measure';
@@ -18,52 +17,54 @@ export interface InspectionStep {
   validation: any;
   next_steps: string[];
   step_order: number;
-  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  status: 'pending' | 'completed';
   orig_id: string;
-  completed_at: string | null;
-  completed_by: string | null;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
- * Generate workflow for a claim
+ * Generate workflow for a claim using AI
  */
-export async function generateWorkflow(claimId: string): Promise<void> {
+export async function generateWorkflow(claimId: string): Promise<{ success: boolean; stepsGenerated: number }> {
   const { data, error } = await supabase.functions.invoke('workflow-generate', {
     body: { claimId },
   });
 
   if (error) throw error;
   if (!data?.ok) throw new Error(data?.error || 'Workflow generation failed');
+  
+  return { success: true, stepsGenerated: data.stepsGenerated };
 }
 
 /**
  * Get workflow steps for a claim
  */
-export async function getWorkflowSteps(claimId: string): Promise<InspectionStep[]> {
+export async function getWorkflowSteps(claimId: string): Promise<WorkflowStep[]> {
   const { data, error } = await supabase
     .from('inspection_steps')
     .select('*')
     .eq('claim_id', claimId)
-    .order('step_order', { ascending: true });
+    .order('step_order');
 
   if (error) {
     console.error('Get workflow steps error:', error);
     return [];
   }
 
-  return (data || []) as InspectionStep[];
+  return (data || []) as WorkflowStep[];
 }
 
 /**
- * Mark a step as complete
+ * Mark a workflow step as complete
  */
-export async function completeStep(stepId: string, userId: string): Promise<void> {
+export async function completeWorkflowStep(stepId: string): Promise<void> {
   const { error } = await supabase
     .from('inspection_steps')
-    .update({
+    .update({ 
       status: 'completed',
       completed_at: new Date().toISOString(),
-      completed_by: userId,
     })
     .eq('id', stepId);
 
@@ -71,15 +72,14 @@ export async function completeStep(stepId: string, userId: string): Promise<void
 }
 
 /**
- * Mark a step as incomplete
+ * Mark a workflow step as incomplete
  */
-export async function uncompleteStep(stepId: string): Promise<void> {
+export async function uncompleteWorkflowStep(stepId: string): Promise<void> {
   const { error } = await supabase
     .from('inspection_steps')
-    .update({
+    .update({ 
       status: 'pending',
       completed_at: null,
-      completed_by: null,
     })
     .eq('id', stepId);
 
@@ -87,64 +87,84 @@ export async function uncompleteStep(stepId: string): Promise<void> {
 }
 
 /**
- * Check if step evidence requirements are met
+ * Check if a step's evidence requirements are met
  */
-export async function checkStepEvidence(
-  step: InspectionStep,
+export async function validateStepEvidence(
+  step: WorkflowStep,
   claimId: string
-): Promise<{ met: boolean; current: number; required: number }> {
-  if (!step.evidence_rules?.min_count) {
-    return { met: true, current: 0, required: 0 };
+): Promise<{ valid: boolean; message?: string }> {
+  if (!step.evidence_rules) {
+    return { valid: true };
   }
 
-  // For photo/scan steps, check media count
-  if (step.kind === 'photo' || step.kind === 'scan') {
+  const rules = step.evidence_rules;
+
+  // Check photo count requirement
+  if (rules.min_count && step.kind === 'photo') {
     const { count } = await supabase
       .from('media')
       .select('*', { count: 'exact', head: true })
       .eq('claim_id', claimId)
-      .eq('type', step.kind === 'photo' ? 'photo' : 'lidar_room');
+      .eq('type', 'photo');
 
-    return {
-      met: (count || 0) >= step.evidence_rules.min_count,
-      current: count || 0,
-      required: step.evidence_rules.min_count,
-    };
+    if ((count || 0) < rules.min_count) {
+      return {
+        valid: false,
+        message: `Need ${rules.min_count} photos, currently have ${count || 0}`,
+      };
+    }
   }
 
-  // For doc steps, check documents count
-  if (step.kind === 'doc') {
+  // Check LiDAR scan requirement
+  if (step.kind === 'scan') {
+    const { count } = await supabase
+      .from('media')
+      .select('*', { count: 'exact', head: true })
+      .eq('claim_id', claimId)
+      .eq('type', 'lidar_room');
+
+    if ((count || 0) === 0) {
+      return {
+        valid: false,
+        message: 'LiDAR scan required',
+      };
+    }
+  }
+
+  // Check document requirement
+  if (step.kind === 'doc' && rules.min_count) {
     const { count } = await supabase
       .from('documents')
       .select('*', { count: 'exact', head: true })
       .eq('claim_id', claimId);
 
-    return {
-      met: (count || 0) >= step.evidence_rules.min_count,
-      current: count || 0,
-      required: step.evidence_rules.min_count,
-    };
+    if ((count || 0) < rules.min_count) {
+      return {
+        valid: false,
+        message: `Need ${rules.min_count} documents, currently have ${count || 0}`,
+      };
+    }
   }
 
-  // For other types, assume met (no way to validate without more context)
-  return { met: true, current: 0, required: 0 };
+  return { valid: true };
 }
 
 /**
- * Get workflow completion stats
+ * Get workflow completion statistics
  */
-export async function getWorkflowStats(claimId: string) {
+export async function getWorkflowStats(claimId: string): Promise<{
+  total: number;
+  completed: number;
+  pending: number;
+  percentComplete: number;
+}> {
   const steps = await getWorkflowSteps(claimId);
   const completed = steps.filter(s => s.status === 'completed').length;
   const total = steps.length;
-  
-  return {
-    total,
-    completed,
-    pending: total - completed,
-    percentComplete: total > 0 ? Math.round((completed / total) * 100) : 0,
-    isComplete: total > 0 && completed === total,
-  };
+  const pending = total - completed;
+  const percentComplete = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  return { total, completed, pending, percentComplete };
 }
 
 /**
@@ -158,4 +178,3 @@ export async function deleteWorkflow(claimId: string): Promise<void> {
 
   if (error) throw error;
 }
-

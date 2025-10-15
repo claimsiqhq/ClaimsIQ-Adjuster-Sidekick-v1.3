@@ -6,6 +6,7 @@ import { colors } from '@/theme/colors';
 import { supabase } from '@/utils/supabase';
 import { listMedia, getPublicUrl, MediaItem } from '@/services/media';
 import { listDocuments, Document } from '@/services/documents';
+import WorkflowChecklist from '@/components/WorkflowChecklist';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
 
