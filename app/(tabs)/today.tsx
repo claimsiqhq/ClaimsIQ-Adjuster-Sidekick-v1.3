@@ -236,8 +236,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
+    borderWidth: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.secondary,
+    borderColor: colors.light,
   },
   claimInfo: {
     flex: 1,
