@@ -1,5 +1,5 @@
 // ios/LiDARScanner/LiDARScanner.swift
-// LiDAR scanning module using ARKit for 3D room capture
+// LiDAR scanning module with DIMENSIONS
 
 import Foundation
 import ARKit
@@ -9,8 +9,6 @@ import RealityKit
 class LiDARScanner: RCTEventEmitter {
   
   private var arSession: ARSession?
-  private var arView: ARView?
-  private var meshAnchors: [UUID: MeshAnchor] = [:]
   private var isScanning = false
   
   override static func requiresMainQueueSetup() -> Bool {
@@ -21,14 +19,12 @@ class LiDARScanner: RCTEventEmitter {
     return ["onScanProgress", "onScanComplete", "onScanError"]
   }
   
-  // Check if device supports LiDAR
   @objc
   func isLiDARAvailable(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     let available = ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)
     resolve(available)
   }
   
-  // Start LiDAR scanning session
   @objc
   func startScanning(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     DispatchQueue.main.async {
@@ -53,7 +49,6 @@ class LiDARScanner: RCTEventEmitter {
     }
   }
   
-  // Stop scanning and generate mesh
   @objc
   func stopScanning(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     DispatchQueue.main.async {
@@ -65,120 +60,88 @@ class LiDARScanner: RCTEventEmitter {
       session.pause()
       self.isScanning = false
       
-      // Extract mesh data
-      let meshData = self.extractMeshData(from: session)
-      resolve(meshData)
-    }
-  }
-  
-  // Export mesh as PLY file
-  @objc
-  func exportMesh(_ fileName: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    DispatchQueue.global(qos: .userInitiated).async {
-      guard let session = self.arSession else {
-        reject("NO_SESSION", "No scanning session available", nil)
+      guard let frame = session.currentFrame else {
+        reject("NO_FRAME", "Could not get current frame", nil)
         return
       }
       
-      do {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let fileURL = documentsPath.appendingPathComponent(fileName)
-        
-        // Generate PLY file
-        let plyData = self.generatePLY(from: session)
-        try plyData.write(to: fileURL)
-        
-        resolve(["filePath": fileURL.path, "fileSize": plyData.count])
-      } catch {
-        reject("EXPORT_FAILED", "Failed to export mesh: \(error.localizedDescription)", error)
+      let meshAnchors = frame.anchors.compactMap { $0 as? ARMeshAnchor }
+      
+      // Calculate bounding box for dimensions
+      var minVec = SIMD3<Float>(.greatestFiniteMagnitude, .greatestFiniteMagnitude, .greatestFiniteMagnitude)
+      var maxVec = SIMD3<Float>(-.greatestFiniteMagnitude, -.greatestFiniteMagnitude, -.greatestFiniteMagnitude)
+      
+      for anchor in meshAnchors {
+        let vertices = anchor.geometry.vertices.asSIMD3(transform: anchor.transform)
+        for vertex in vertices {
+          minVec = min(minVec, vertex)
+          maxVec = max(maxVec, vertex)
+        }
       }
+      
+      let dimensions = maxVec - minVec
+      
+      // Generate PLY file
+      let fileName = "scan-\(Date().timeIntervalSince1970).ply"
+      let filePath = self.generatePLY(from: meshAnchors, fileName: fileName)
+      
+      let result: [String: Any] = [
+        "pointCount": meshAnchors.reduce(0) { $0 + $1.geometry.vertices.count },
+        "meshCount": meshAnchors.count,
+        "filePath": filePath ?? "",
+        "dimensions": [
+          "width": dimensions.x,
+          "height": dimensions.y,
+          "depth": dimensions.z
+        ]
+      ]
+      
+      resolve(result)
     }
   }
   
-  // Get current scan statistics
   @objc
   func getScanStats(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     DispatchQueue.main.async {
-      guard let session = self.arSession else {
+      guard let session = self.arSession, let frame = session.currentFrame else {
         resolve(["isScanning": false, "pointCount": 0, "meshCount": 0])
         return
       }
       
-      let stats = self.calculateScanStats(from: session)
-      resolve(stats)
+      let meshAnchors = frame.anchors.compactMap { $0 as? ARMeshAnchor }
+      let pointCount = meshAnchors.reduce(0) { $0 + $1.geometry.vertices.count }
+      
+      resolve([
+        "isScanning": self.isScanning,
+        "pointCount": pointCount,
+        "meshCount": meshAnchors.count
+      ])
     }
   }
   
-  // MARK: - Private Methods
-  
-  private func extractMeshData(from session: ARSession) -> [String: Any] {
-    guard let frame = session.currentFrame else {
-      return ["pointCount": 0, "meshAnchors": 0]
-    }
-    
-    var totalVertices = 0
-    var meshCount = 0
-    
-    for anchor in frame.anchors {
-      if let meshAnchor = anchor as? ARMeshAnchor {
-        totalVertices += meshAnchor.geometry.vertices.count
-        meshCount += 1
-      }
-    }
-    
-    return [
-      "pointCount": totalVertices,
-      "meshCount": meshCount,
-      "timestamp": Date().timeIntervalSince1970
-    ]
-  }
-  
-  private func calculateScanStats(from session: ARSession) -> [String: Any] {
-    let meshData = extractMeshData(from: session)
-    return [
-      "isScanning": isScanning,
-      "pointCount": meshData["pointCount"] ?? 0,
-      "meshCount": meshData["meshCount"] ?? 0
-    ]
-  }
-  
-  private func generatePLY(from session: ARSession) -> Data {
-    guard let frame = session.currentFrame else {
-      return Data()
-    }
-    
-    var vertices: [simd_float3] = []
+  private func generatePLY(from meshAnchors: [ARMeshAnchor], fileName: String) -> String? {
+    var vertices: [SIMD3<Float>] = []
     var faces: [[Int]] = []
     
-    // Collect all mesh data
-    for anchor in frame.anchors {
-      if let meshAnchor = anchor as? ARMeshAnchor {
-        let geometry = meshAnchor.geometry
-        let transform = meshAnchor.transform
-        
-        let baseIndex = vertices.count
-        
-        // Transform vertices to world coordinates
-        for i in 0..<geometry.vertices.count {
-          let vertex = geometry.vertices[i]
-          let worldVertex = transform * simd_float4(vertex, 1.0)
-          vertices.append(simd_float3(worldVertex.x, worldVertex.y, worldVertex.z))
-        }
-        
-        // Add faces
-        let indices = geometry.faces
-        for i in stride(from: 0, to: indices.count, by: 3) {
-          let face = [
-            Int(indices[i]) + baseIndex,
-            Int(indices[i + 1]) + baseIndex,
-            Int(indices[i + 2]) + baseIndex
-          ]
-          faces.append(face)
-        }
+    for anchor in meshAnchors {
+      let geometry = anchor.geometry
+      let transform = anchor.transform
+      let baseIndex = vertices.count
+      
+      let anchorVertices = geometry.vertices.asSIMD3(transform: transform)
+      vertices.append(contentsOf: anchorVertices)
+      
+      let indices = geometry.faces
+      for i in stride(from: 0, to: indices.count, by: 3) {
+        let face = [
+          Int(indices[i]) + baseIndex,
+          Int(indices[i + 1]) + baseIndex,
+          Int(indices[i + 2]) + baseIndex
+        ]
+        faces.append(face)
       }
     }
     
-    // Generate PLY format
     var plyString = """
     ply
     format ascii 1.0
@@ -192,18 +155,37 @@ class LiDARScanner: RCTEventEmitter {
     
     """
     
-    // Write vertices
     for vertex in vertices {
       plyString += "\(vertex.x) \(vertex.y) \(vertex.z)\n"
     }
     
-    // Write faces
     for face in faces {
       plyString += "3 \(face[0]) \(face[1]) \(face[2])\n"
     }
     
-    return plyString.data(using: .utf8) ?? Data()
+    guard let data = plyString.data(using: .utf8) else { return nil }
+    
+    let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    let fileURL = documentsPath.appendingPathComponent(fileName)
+    
+    try? data.write(to: fileURL)
+    return fileURL.path
   }
 }
 
-
+// Helper extension for vertex transformation
+extension ARGeometrySource {
+  func asSIMD3(transform: simd_float4x4) -> [SIMD3<Float>] {
+    var vertices = [SIMD3<Float>]()
+    for i in 0..<self.count {
+      let vertexPointer = self.buffer.contents().advanced(by: self.offset + self.stride * i)
+      let vertex = vertexPointer.assumingMemoryBound(to: SIMD3<Float>.self).pointee
+      
+      var world_vertex = transform * SIMD4<Float>(vertex.x, vertex.y, vertex.z, 1)
+      world_vertex /= world_vertex.w
+      
+      vertices.append(SIMD3<Float>(world_vertex.x, world_vertex.y, world_vertex.z))
+    }
+    return vertices
+  }
+}
