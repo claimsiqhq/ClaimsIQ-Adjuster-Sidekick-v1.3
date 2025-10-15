@@ -1,13 +1,14 @@
 {
-  "cli": {
-    "version": ">= 16.21.0"
+  "cli": { 
+    "version": ">= 16.21.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": true,
+        "simulator": false,
         "buildConfiguration": "Debug"
       }
     },
@@ -24,7 +25,5 @@
       }
     }
   },
-  "submit": {
-    "production": {}
-  }
+  "submit": { "production": {} }
 }

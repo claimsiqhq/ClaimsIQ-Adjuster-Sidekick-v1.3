@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Switch, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
+import { SyncStatus } from '@/components/SyncStatus';
 import { colors } from '@/theme/colors';
 import { useRouter } from 'expo-router';
 import { signOut } from '@/services/auth';
@@ -40,6 +41,9 @@ export default function SettingsScreen() {
   return (
     <View style={styles.container}>
       <Header title="Settings" subtitle="Accounts, data, preferences." />
+      <Section title="Sync Status">
+        <SyncStatus />
+      </Section>
       <Section title="Accounts">
         <Text style={styles.li}>• Supabase: Connected</Text>
         <Text style={styles.li}>• Microsoft 365: Not linked</Text>

@@ -1,253 +1,223 @@
-# Claims iQ Sidekick
+# ClaimsiQ Sidekick
 
-A mobile insurance claims inspection app built with Expo, React Native, and Supabase. Features AI-powered photo annotation, claims management, and field inspection workflows.
+A native iOS insurance claims inspection app built with React Native (Expo) for iPhone devices.
+
+## Overview
+
+ClaimsiQ Sidekick streamlines the insurance claims inspection process by enabling field adjusters to:
+- Capture and annotate photos with AI-powered damage detection
+- Manage claims with offline-first architecture
+- Access location-based claim information
+- Track daily activities and workflows
+
+## Tech Stack
+
+- **Frontend**: React Native + Expo SDK 54
+- **Language**: TypeScript (strict mode)
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **AI**: OpenAI Vision API for damage detection
+- **Platform**: iOS (iPhone only)
 
 ## Features
 
-- 📸 **Photo Capture & Management** - Camera integration with automatic AI annotation
-- 🤖 **AI Vision** - OpenAI GPT-4 Vision for damage detection and assessment
-- 📋 **Claims Tracking** - Search and manage insurance claims
-- 🗄️ **Supabase Backend** - PostgreSQL database with real-time capabilities
-- 🔐 **Authentication** - Secure user authentication with session persistence
-- ⚙️ **Admin Panel** - Dynamic prompt management for AI models
-- 🎨 **Modern UI** - Beautiful, responsive interface with custom components
+### Core Functionality
+- 📸 Photo capture with AI annotation
+- 🔍 Damage detection using OpenAI Vision
+- 📋 Claims list management
+- 📍 Map-based claims view
+- 📅 Daily activity tracking
+- ⚙️ Settings and admin controls
 
-## Prerequisites
-
-- Node.js 18+ and npm
-- [Expo CLI](https://docs.expo.dev/get-started/installation/)
-- [Supabase Account](https://supabase.com/)
-- [OpenAI API Key](https://platform.openai.com/)
-- iOS Simulator (Mac) or Android Emulator
-
-## Setup Instructions
-
-### 1. Clone and Install Dependencies
-
-```bash
-git clone <repository-url>
-cd <project-directory>
-npm install
-```
-
-### 2. Configure Environment Variables
-
-Create a `.env` file in the project root (see `ENV_SETUP.md` for details):
-
-```bash
-# Supabase Configuration
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_API_KEY=your-anon-key-here
-
-# Development Credentials (optional)
-EXPO_PUBLIC_DEV_EMAIL=dev@example.com
-EXPO_PUBLIC_DEV_PASSWORD=devpassword123
-```
-
-### 3. Set Up Supabase Database
-
-#### Run Database Migrations
-
-Execute the following SQL files in your Supabase SQL Editor (in order):
-
-1. `supabase/schema/prompts.sql` - App prompts table
-2. `supabase/schema/claims.sql` - Claims table with RLS
-3. `supabase/schema/media_rls.sql` - Media table RLS policies
-
-Note: `profiles`, `media`, and `app_settings` tables should already exist in your Supabase project.
-
-#### Configure Storage Bucket
-
-1. Go to Supabase Dashboard → Storage
-2. Create a public bucket named `media`
-3. Set policies to allow authenticated users to upload/read
-
-### 4. Set Up Supabase Edge Function
-
-#### Configure Secrets
-
-In Supabase Dashboard → Edge Functions → Secrets, add:
-
-```
-OPENAI_API_KEY=sk-your-openai-api-key
-```
-
-#### Deploy Vision Annotate Function
-
-```bash
-# Install Supabase CLI
-npm install -g supabase
-
-# Login to Supabase
-supabase login
-
-# Link your project
-supabase link --project-ref your-project-ref
-
-# Deploy the function
-supabase functions deploy vision-annotate
-```
-
-### 5. Add Assets (Optional)
-
-Add the following images to `assets/images/`:
-- `app-icon.png` (1024x1024)
-- `splash.png` (2048x2048 or similar)
-
-Or update `app.json` to reference your own icon/splash files.
-
-### 6. Start Development Server
-
-```bash
-npx expo start
-```
-
-Press:
-- `i` for iOS simulator
-- `a` for Android emulator
-- `w` for web (limited support)
+### Technical Features
+- Offline-first architecture with local SQLite
+- Secure credential storage using iOS Keychain
+- Real-time sync with Supabase backend
+- Dynamic AI prompt management system
+- Row-level security for multi-tenant support
 
 ## Project Structure
 
 ```
 .
-├── app/                      # App screens (Expo Router)
-│   ├── (tabs)/              # Tab navigation screens
-│   │   ├── capture.tsx      # Photo capture & gallery
-│   │   ├── claims.tsx       # Claims list & search
-│   │   ├── today.tsx        # Daily overview
-│   │   ├── map.tsx          # Route planning
-│   │   ├── settings.tsx     # User settings
-│   │   └── explore.tsx      # Documentation
-│   ├── admin/               # Admin screens
-│   │   └── prompts.tsx      # Prompt management
-│   ├── auth/                # Authentication
-│   │   └── login.tsx        # Login screen
-│   └── photo/[id].tsx       # Photo detail view
-├── components/              # Reusable UI components
-├── services/                # API service layer
-│   ├── auth.ts              # Authentication
-│   ├── claims.ts            # Claims CRUD
-│   ├── media.ts             # Media/photo management
-│   ├── prompts.ts           # Prompt management
-│   └── annotate.ts          # AI annotation trigger
-├── supabase/
-│   ├── schema/              # Database migrations
-│   └── functions/           # Edge functions
-│       └── vision-annotate/ # AI vision processing
-├── theme/                   # Design system
-│   └── colors.ts            # Color palette
-└── utils/                   # Utilities
-    └── supabase.ts          # Supabase client
-
+├── app/                 # Expo Router pages
+│   ├── (tabs)/         # Tab navigation screens
+│   ├── auth/           # Authentication screens
+│   ├── admin/          # Admin screens
+│   └── photo/          # Photo detail views
+├── components/         # Reusable UI components
+├── services/           # Business logic and API services
+├── utils/              # Utility functions
+├── theme/              # Design system and colors
+└── supabase/           # Backend functions and schema
 ```
 
-## Key Technologies
+## Getting Started
 
-- **Expo 54** - React Native framework
-- **Expo Router** - File-based routing
-- **Supabase** - Backend as a Service (PostgreSQL, Auth, Storage, Edge Functions)
-- **OpenAI GPT-4 Vision** - AI-powered image analysis
-- **TypeScript** - Type-safe development
-- **React Native Skia** - Hardware-accelerated graphics for annotations
+### Prerequisites
+- Node.js 18+ and npm
+- iPhone (physical device)
+- Expo Go app from the App Store
+- Supabase account for backend
 
-## Development Workflow
+### Installation
 
-### Running the App
-
+1. Install dependencies:
 ```bash
-# Development mode
-npm start
-
-# iOS
-npm run ios
-
-# Android
-npm run android
-
-# Lint
-npm run lint
-```
-
-### Database Migrations
-
-1. Create SQL file in `supabase/schema/`
-2. Run in Supabase SQL Editor or via CLI:
-   ```bash
-   supabase db push
-   ```
-
-### Testing Edge Functions Locally
-
-```bash
-supabase functions serve vision-annotate --env-file .env
-```
-
-## Common Issues
-
-### Session Persistence Not Working
-
-- Ensure `@react-native-async-storage/async-storage` is installed
-- Run `npx expo prebuild` to regenerate native projects
-
-### Camera Not Working
-
-- iOS: Check `Info.plist` has camera permissions
-- Android: Check `AndroidManifest.xml` has camera permissions
-- Restart Metro bundler after permission changes
-
-### Environment Variables Not Loading
-
-- Restart the Expo dev server after changing `.env`
-- Variables must be prefixed with `EXPO_PUBLIC_`
-
-### Build Failures
-
-```bash
-# Clean and reinstall
-rm -rf node_modules package-lock.json
 npm install
-
-# Clear Expo cache
-npx expo start -c
 ```
 
-## Deployment
+2. Set up environment variables in `.env`:
+```
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+EXPO_PUBLIC_SUPABASE_API_KEY=your_supabase_anon_key
+```
 
-### Build for iOS/Android
+3. Start the development server:
+```bash
+npx expo start
+```
 
+4. Open Expo Go on your iPhone and scan the QR code
+
+### Building for Production
+
+Create a standalone iOS app:
 ```bash
 # Configure EAS Build
 npx eas build:configure
 
 # Build for iOS
-npx eas build --platform ios
+npx eas build --platform ios --profile production
 
-# Build for Android
-npx eas build --platform android
+# Submit to TestFlight
+npx eas submit --platform ios
 ```
 
-### Submit to App Stores
+## Database Setup
+
+### SQL Migrations
+
+Run these in your Supabase SQL Editor (in order):
+1. `supabase/schema/claims.sql` - Claims table structure
+2. `supabase/schema/media_rls.sql` - Media security policies  
+3. `supabase/schema/prompts.sql` - AI prompt versioning
+
+### Edge Function Deployment
+
+Deploy the AI vision function:
+```bash
+# Install Supabase CLI
+npm install -g supabase
+
+# Login and link project
+supabase login
+supabase link --project-ref your-project-ref
+
+# Deploy function
+supabase functions deploy vision-annotate
+```
+
+Set the OpenAI API key in Supabase Dashboard → Edge Functions → Secrets:
+```
+OPENAI_API_KEY=your_openai_api_key
+```
+
+### Storage Configuration
+
+1. Go to Supabase Dashboard → Storage
+2. Create a public bucket named `media`
+3. Set policies to allow authenticated users to upload/read
+
+## App Configuration
+
+### Required Assets
+
+Add to `.assets/images/`:
+- `app-icon.png` - App icon (1024x1024)
+- `splash.png` - Splash screen image
+
+### Configuration Files
+- `app.json` - Expo and iOS-specific settings
+- `eas.json` - Build configuration for EAS
+- `tsconfig.json` - TypeScript configuration
+
+### iOS Permissions
+
+The app requests these permissions (configured in `app.json`):
+- Camera - For photo capture
+- Microphone - For voice notes
+- Photo Library - For saving reports
+
+## Development Workflow
+
+### Running on iPhone
+
+1. Install Expo Go from the App Store
+2. Start dev server: `npx expo start`
+3. Scan QR code with Expo Go
+4. App reloads automatically on file changes
+
+### Code Guidelines
+
+- TypeScript strict mode enforced
+- Functional components with React Hooks
+- File-based routing with expo-router
+- Service layer pattern for business logic
+- iOS Keychain for secure storage
+
+### Testing
 
 ```bash
-# iOS App Store
-npx eas submit --platform ios
+# Run tests
+npm test
 
-# Google Play Store
-npx eas submit --platform android
+# Type checking
+npx tsc --noEmit
+
+# Linting
+npm run lint
 ```
 
-## Contributing
+## Theme Configuration
 
-See `CONTRIBUTIONS.md` for guidelines.
+The app uses a purple/pink color scheme defined in `theme/colors.ts`:
+- Primary: #7C3AED (Purple)
+- Secondary: #EC4899 (Pink)
+- Background: #F0E6FA (Light purple)
 
-## Support
+## Troubleshooting
 
-For issues or questions:
-1. Check the [Expo documentation](https://docs.expo.dev/)
-2. Check the [Supabase documentation](https://supabase.com/docs)
-3. Open an issue in this repository
+### Build Errors
+
+```bash
+# Clear caches and reinstall
+rm -rf node_modules package-lock.json
+npm install
+npx expo start -c
+```
+
+### Expo Go Connection Issues
+
+1. Ensure iPhone and development machine are on same network
+2. Check firewall settings
+3. Try using tunnel mode: `npx expo start --tunnel`
+
+### iOS-Specific Issues
+
+- Restart Expo Go app
+- Clear Expo Go cache in app settings
+- Ensure iOS version is compatible (iOS 13+)
+
+## Project Details
+
+- **Bundle ID**: com.claimsiq.claimsiqadjustersidekickv13
+- **EAS Project ID**: 31e9a2f0-7c90-41af-bdf1-f3e53d0e75dd
+- **Owner**: claimsiq
 
 ## License
 
-[Your License Here]
+Proprietary - ClaimsiQ
+
+## Support
+
+For support, contact the ClaimsiQ development team.

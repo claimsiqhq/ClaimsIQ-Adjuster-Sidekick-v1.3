@@ -68,10 +68,7 @@ export default function ClaimsScreen() {
             <Item 
               key={claim.id} 
               claim={claim} 
-              onPress={() => {
-                // TODO: Navigate to claim detail screen
-                console.log('View claim:', claim.id);
-              }}
+              onPress={() => router.push(`/claim/${claim.id}`)}
             />
           ))
         )}
@@ -83,10 +80,10 @@ export default function ClaimsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgSoft },
   searchWrap: { paddingHorizontal: 16, marginBottom: 8 },
-  input: { backgroundColor: colors.white, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.line },
-  card: { backgroundColor: colors.white, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: colors.line, marginBottom: 10 },
+  input: { backgroundColor: colors.white, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.line, color: colors.core },
+  card: { backgroundColor: colors.white, padding: 16, borderRadius: 16, borderWidth: 2, borderLeftWidth: 4, borderLeftColor: colors.primary, borderColor: colors.light, marginBottom: 10 },
   title: { fontWeight: "600", color: colors.core, marginBottom: 4 },
-  sub: { color: "#5F6771" },
+  sub: { color: colors.textLight },
   tag: { alignSelf: "flex-start", backgroundColor: colors.light, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginTop: 8 },
   tagText: { color: colors.core, fontSize: 12, fontWeight: "600" }
 });

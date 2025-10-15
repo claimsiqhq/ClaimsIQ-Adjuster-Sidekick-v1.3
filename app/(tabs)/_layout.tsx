@@ -1,50 +1,77 @@
-// app/_layout.tsx
-import { useEffect, useState } from 'react';
-import { Stack, SplashScreen, Redirect } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { supabase } from '@/utils/supabase';
-import { onAuthStateChange } from '@/services/auth';
-import { View, ActivityIndicator } from 'react-native';
+import { Tabs } from "expo-router";
+import { colors } from "@/theme/colors";
+import { Platform } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const [ready, setReady] = useState(false);
-  const [authed, setAuthed] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      setAuthed(!!data.session);
-      setReady(true);
-      SplashScreen.hideAsync();
-    })();
-    const unsub = onAuthStateChange(async () => {
-      const { data } = await supabase.auth.getSession();
-      setAuthed(!!data.session);
-    });
-    return unsub;
-  }, []);
-
-  if (!ready || authed === null) {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator />
-        </View>
-      </SafeAreaProvider>
-    );
-  }
-
-  if (!authed) {
-    return <Redirect href="/auth/login" />;
-  }
-
+export default function TabLayout() {
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }} />
-    </SafeAreaProvider>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textLight,
+        tabBarStyle: {
+          backgroundColor: colors.white,
+          borderTopColor: colors.line,
+          height: Platform.OS === "ios" ? 88 : 60,
+          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="today"
+        options={{
+          title: "Today",
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="capture"
+        options={{
+          title: "Capture",
+          tabBarIcon: ({ color, size }) => <Ionicons name="camera-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="claims"
+        options={{
+          title: "Claims",
+          tabBarIcon: ({ color, size }) => <Ionicons name="folder-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: "Map",
+          tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: "Explore",
+          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+        }}
+      />
+    </Tabs>
   );
 }

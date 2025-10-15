@@ -1,109 +1,188 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Pressable, Linking } from 'react-native';
+import Header from '@/components/Header';
+import Section from '@/components/Section';
+import { colors } from '@/theme/colors';
 
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-
-export default function TabTwoScreen() {
+export default function ExploreScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <ScrollView style={styles.container}>
+      <Header title="Help & Resources" subtitle="Learn how to use Claims iQ Sidekick" />
+
+      <Section title="Quick Start Guide">
+        <GuideItem 
+          number="1" 
+          title="Capture Photos"
+          description="Go to Capture tab, tap camera icon, take photos of damage. AI will automatically detect and annotate issues."
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+        <GuideItem 
+          number="2" 
+          title="Create Claims"
+          description="In the Capture gallery, select photos and assign them to a claim number. The claim will be created automatically."
+        />
+        <GuideItem 
+          number="3" 
+          title="Upload FNOL"
+          description="Open a claim, tap 'Upload Document', select FNOL PDF. AI will extract all claim data automatically."
+        />
+        <GuideItem 
+          number="4" 
+          title="Review & Edit"
+          description="View claim details, edit information, add notes. All changes sync automatically."
+        />
+        <GuideItem 
+          number="5" 
+          title="Generate Reports"
+          description="From claim details, tap 'Generate Report' to create professional PDF reports with photos and annotations."
+        />
+      </Section>
+
+      <Section title="Features">
+        <FeatureItem icon="📸" title="Photo Capture" description="Take photos with automatic AI damage detection" />
+        <FeatureItem icon="🤖" title="AI Analysis" description="GPT-4 Vision identifies damage, severity, and creates annotations" />
+        <FeatureItem icon="📄" title="FNOL Processing" description="Upload FNOL PDFs and extract data automatically" />
+        <FeatureItem icon="📊" title="Claim Management" description="Track claims, edit details, view history" />
+        <FeatureItem icon="📱" title="Offline Support" description="Work without internet, sync when connected" />
+        <FeatureItem icon="📝" title="Reports" description="Generate professional claim reports with photos" />
+      </Section>
+
+      <Section title="Support & Feedback">
+        <Pressable 
+          style={styles.linkButton}
+          onPress={() => Linking.openURL('https://claimsiq.ai/support')}
+        >
+          <Text style={styles.linkText}>📧 Contact Support</Text>
+        </Pressable>
+        
+        <Pressable 
+          style={styles.linkButton}
+          onPress={() => Linking.openURL('https://claimsiq.ai/docs')}
+        >
+          <Text style={styles.linkText}>📚 Documentation</Text>
+        </Pressable>
+
+        <View style={styles.versionCard}>
+          <Text style={styles.versionText}>Version 1.0.0</Text>
+          <Text style={styles.versionSubtext}>Claims iQ Sidekick © 2025</Text>
+        </View>
+      </Section>
+    </ScrollView>
+  );
+}
+
+function GuideItem({ number, title, description }: { number: string; title: string; description: string }) {
+  return (
+    <View style={styles.guideItem}>
+      <View style={styles.numberBadge}>
+        <Text style={styles.numberText}>{number}</Text>
+      </View>
+      <View style={styles.guideContent}>
+        <Text style={styles.guideTitle}>{title}</Text>
+        <Text style={styles.guideDesc}>{description}</Text>
+      </View>
+    </View>
+  );
+}
+
+function FeatureItem({ icon, title, description }: { icon: string; title: string; description: string }) {
+  return (
+    <View style={styles.featureItem}>
+      <Text style={styles.featureIcon}>{icon}</Text>
+      <View style={styles.featureContent}>
+        <Text style={styles.featureTitle}>{title}</Text>
+        <Text style={styles.featureDesc}>{description}</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
-  },
-  titleContainer: {
+  container: { flex: 1, backgroundColor: colors.bgSoft },
+  guideItem: {
     flexDirection: 'row',
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  numberBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  numberText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  guideContent: {
+    flex: 1,
+  },
+  guideTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.core,
+    marginBottom: 4,
+  },
+  guideDesc: {
+    fontSize: 13,
+    color: '#5F6771',
+    lineHeight: 18,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  featureIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  featureContent: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.core,
+    marginBottom: 2,
+  },
+  featureDesc: {
+    fontSize: 12,
+    color: '#9AA0A6',
+  },
+  linkButton: {
+    backgroundColor: colors.white,
+    padding: 14,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+  },
+  linkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  versionCard: {
+    marginTop: 10,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  versionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.core,
+  },
+  versionSubtext: {
+    fontSize: 11,
+    color: '#9AA0A6',
+    marginTop: 4,
   },
 });

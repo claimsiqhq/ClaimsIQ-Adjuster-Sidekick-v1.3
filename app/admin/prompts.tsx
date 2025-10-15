@@ -1,232 +1,383 @@
 // app/admin/prompts.tsx
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { listPrompts, createPromptVersion, setActivePrompt, AppPrompt, PromptRole } from '@/services/prompts';
+// SIMPLIFIED: One active prompt per function, easy editing
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View, ActivityIndicator } from 'react-native';
+import { listPrompts, createPromptVersion, AppPrompt } from '@/services/prompts';
 import { colors } from '@/theme/colors';
 import { useRouter } from 'expo-router';
 
-type PromptKeyGroup = {
+interface PromptEdit {
+  key: string;
   title: string;
-  keys: { key: string; label: string; role: PromptRole }[];
-};
-
-const GROUPS: PromptKeyGroup[] = [
-  {
-    title: 'FNOL PDF → JSON',
-    keys: [
-      { key: 'fnol_extract_system', label: 'System', role: 'system' },
-      { key: 'fnol_extract_user', label: 'User', role: 'user' },
-    ],
-  },
-  {
-    title: 'Photo Annotation',
-    keys: [
-      { key: 'vision_annotate_system', label: 'System', role: 'system' },
-      { key: 'vision_annotate_user', label: 'User', role: 'user' },
-    ],
-  },
-  {
-    title: 'Workflow Generation',
-    keys: [
-      { key: 'workflow_generate_system', label: 'System', role: 'system' },
-      { key: 'workflow_generate_user', label: 'User', role: 'user' },
-    ],
-  },
-];
+  description: string;
+  systemPrompt: string;
+  userPrompt: string;
+}
 
 export default function AdminPromptsScreen() {
-  const [prompts, setPrompts] = useState<AppPrompt[]>([]);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [draft, setDraft] = useState<{ key: string; role: PromptRole; description?: string; template: string; is_active: boolean }>({
-    key: '',
-    role: 'system',
-    description: '',
-    template: '',
-    is_active: true,
+  const [saving, setSaving] = useState(false);
+  
+  // One edit state per prompt function
+  const [fnol, setFnol] = useState<PromptEdit>({
+    key: 'fnol_extract',
+    title: 'FNOL Extraction',
+    description: 'Extract claim data from FNOL PDFs',
+    systemPrompt: '',
+    userPrompt: '',
+  });
+  
+  const [vision, setVision] = useState<PromptEdit>({
+    key: 'vision_annotate',
+    title: 'Photo Annotation',
+    description: 'Detect damage in photos',
+    systemPrompt: '',
+    userPrompt: '',
+  });
+  
+  const [workflow, setWorkflow] = useState<PromptEdit>({
+    key: 'workflow_generate',
+    title: 'Workflow Generation',
+    description: 'Generate inspection workflows',
+    systemPrompt: '',
+    userPrompt: '',
   });
 
-  const router = useRouter();
+  useEffect(() => {
+    loadPrompts();
+  }, []);
 
-  async function load() {
+  async function loadPrompts() {
     try {
       setLoading(true);
-      const rows = await listPrompts();
-      setPrompts(rows);
-    } catch (e: any) {
-      Alert.alert('Error', String(e?.message ?? e));
+      const allPrompts = await listPrompts();
+      
+      // Get active prompts only
+      const fnolSys = allPrompts.find(p => p.key === 'fnol_extract_system' && p.is_active);
+      const fnolUser = allPrompts.find(p => p.key === 'fnol_extract_user' && p.is_active);
+      const visionSys = allPrompts.find(p => p.key === 'vision_annotate_system' && p.is_active);
+      const visionUser = allPrompts.find(p => p.key === 'vision_annotate_user' && p.is_active);
+      const workflowSys = allPrompts.find(p => p.key === 'workflow_generate_system' && p.is_active);
+      const workflowUser = allPrompts.find(p => p.key === 'workflow_generate_user' && p.is_active);
+      
+      if (fnolSys || fnolUser) {
+        setFnol(prev => ({
+          ...prev,
+          systemPrompt: fnolSys?.template || '',
+          userPrompt: fnolUser?.template || '',
+        }));
+      }
+      
+      if (visionSys || visionUser) {
+        setVision(prev => ({
+          ...prev,
+          systemPrompt: visionSys?.template || '',
+          userPrompt: visionUser?.template || '',
+        }));
+      }
+      
+      if (workflowSys || workflowUser) {
+        setWorkflow(prev => ({
+          ...prev,
+          systemPrompt: workflowSys?.template || '',
+          userPrompt: workflowUser?.template || '',
+        }));
+      }
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to load prompts: ' + error.message);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  const grouped = useMemo(() => {
-    const map: Record<string, AppPrompt[]> = {};
-    for (const g of GROUPS) {
-      for (const { key } of g.keys) {
-        map[key] = prompts.filter(p => p.key === key);
+  async function savePrompt(promptEdit: PromptEdit) {
+    try {
+      setSaving(true);
+      
+      // Save system prompt
+      if (promptEdit.systemPrompt) {
+        await createPromptVersion({
+          org_id: null,
+          key: `${promptEdit.key}_system`,
+          role: 'system',
+          description: `System prompt for ${promptEdit.title}`,
+          template: promptEdit.systemPrompt,
+          is_active: true,
+        } as any);
       }
-    }
-    return map as Record<string, AppPrompt[]>;
-  }, [prompts]);
-
-  function openCreate(key: string, role: PromptRole) {
-    setDraft({ key, role, description: '', template: '', is_active: true });
-    setEditorOpen(true);
-  }
-
-  async function saveDraft() {
-    try {
-      const newRow = await createPromptVersion({
-        org_id: null,
-        key: draft.key,
-        role: draft.role,
-        description: draft.description ?? null,
-        template: draft.template,
-        is_active: !!draft.is_active,
-      } as any);
-      setEditorOpen(false);
-      await load();
-      Alert.alert('Saved', `New version for ${newRow.key} is ${newRow.is_active ? 'active' : 'inactive'}.`);
-    } catch (e: any) {
-      Alert.alert('Save failed', String(e?.message ?? e));
+      
+      // Save user prompt
+      if (promptEdit.userPrompt) {
+        await createPromptVersion({
+          org_id: null,
+          key: `${promptEdit.key}_user`,
+          role: 'user',
+          description: `User prompt for ${promptEdit.title}`,
+          template: promptEdit.userPrompt,
+          is_active: true,
+        } as any);
+      }
+      
+      Alert.alert('Success', `${promptEdit.title} prompts updated!`);
+      await loadPrompts();
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to save: ' + error.message);
+    } finally {
+      setSaving(false);
     }
   }
 
-  async function activate(id: string) {
-    try {
-      await setActivePrompt(id);
-      await load();
-    } catch (e: any) {
-      Alert.alert('Activation failed', String(e?.message ?? e));
-    }
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgSoft }}>
+    <SafeAreaView style={styles.container}>
+      {/* Header with Back Button */}
       <View style={styles.header}>
-        <Text style={styles.title}>Admin · Prompts</Text>
-        <Pressable style={styles.btn} onPress={load}><Text style={styles.btnTxt}>Reload</Text></Pressable>
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </Pressable>
+        <Text style={styles.title}>AI Prompts</Text>
+        <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {GROUPS.map(group => (
-          <View key={group.title} style={styles.section}>
-            <Text style={styles.h}>{group.title}</Text>
-            {group.keys.map(k => (
-              <View key={k.key} style={styles.card}>
-                <View style={styles.rowHead}>
-                  <Text style={styles.key}>{k.label}</Text>
-                  <Pressable style={styles.smallBtn} onPress={() => openCreate(k.key, k.role)}>
-                    <Text style={styles.smallBtnTxt}>New version</Text>
-                  </Pressable>
-                </View>
-                <FlatList
-                  data={grouped[k.key] ?? []}
-                  keyExtractor={i => i.id}
-                  ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-                  renderItem={({ item }) => (
-                    <View style={styles.version}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.meta}>{new Date(item.updated_at).toLocaleString()}</Text>
-                        <Text numberOfLines={3} style={styles.preview}>{item.template}</Text>
-                        <Text style={[styles.badge, item.is_active ? styles.active : styles.inactive]}>
-                          {item.is_active ? 'ACTIVE' : 'INACTIVE'}
-                        </Text>
-                      </View>
-                      {!item.is_active ? (
-                        <Pressable style={styles.actBtn} onPress={() => activate(item.id)}>
-                          <Text style={styles.actBtnTxt}>Make Active</Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  )}
-                />
-              </View>
-            ))}
-          </View>
-        ))}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.subtitle}>
+          Edit the AI prompts used for data extraction and analysis. Each function has two prompts: System (instructions) and User (task).
+        </Text>
+
+        {/* FNOL Extraction */}
+        <PromptEditor
+          title={fnol.title}
+          description={fnol.description}
+          systemPrompt={fnol.systemPrompt}
+          userPrompt={fnol.userPrompt}
+          onSystemChange={(text) => setFnol({ ...fnol, systemPrompt: text })}
+          onUserChange={(text) => setFnol({ ...fnol, userPrompt: text })}
+          onSave={() => savePrompt(fnol)}
+          saving={saving}
+        />
+
+        {/* Photo Annotation */}
+        <PromptEditor
+          title={vision.title}
+          description={vision.description}
+          systemPrompt={vision.systemPrompt}
+          userPrompt={vision.userPrompt}
+          onSystemChange={(text) => setVision({ ...vision, systemPrompt: text })}
+          onUserChange={(text) => setVision({ ...vision, userPrompt: text })}
+          onSave={() => savePrompt(vision)}
+          saving={saving}
+        />
+
+        {/* Workflow Generation */}
+        <PromptEditor
+          title={workflow.title}
+          description={workflow.description}
+          systemPrompt={workflow.systemPrompt}
+          userPrompt={workflow.userPrompt}
+          onSystemChange={(text) => setWorkflow({ ...workflow, systemPrompt: text })}
+          onUserChange={(text) => setWorkflow({ ...workflow, userPrompt: text })}
+          onSave={() => savePrompt(workflow)}
+          saving={saving}
+        />
       </ScrollView>
-
-      <Modal visible={editorOpen} animationType="slide" onRequestClose={() => setEditorOpen(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgSoft }}>
-          <View style={styles.header}>
-            <Text style={styles.title}>New Prompt Version</Text>
-            <Pressable style={styles.btn} onPress={() => setEditorOpen(false)}><Text style={styles.btnTxt}>Close</Text></Pressable>
-          </View>
-          <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-            <View style={styles.form}>
-              <Text style={styles.label}>Key</Text>
-              <TextInput style={styles.input} value={draft.key} editable={false} />
-
-              <Text style={styles.label}>Role</Text>
-              <TextInput style={styles.input} value={draft.role} editable={false} />
-
-              <Text style={styles.label}>Description (optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Describe this version"
-                value={draft.description}
-                onChangeText={(t) => setDraft((d) => ({ ...d, description: t }))}
-              />
-
-              <Text style={styles.label}>Template</Text>
-              <TextInput
-                style={[styles.input, styles.multiline]}
-                multiline
-                textAlignVertical="top"
-                placeholder="Enter full prompt template..."
-                value={draft.template}
-                onChangeText={(t) => setDraft((d) => ({ ...d, template: t }))}
-              />
-
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-                <Pressable style={styles.primary} onPress={saveDraft}><Text style={styles.primaryTxt}>Save & Activate</Text></Pressable>
-                <Pressable style={styles.secondary} onPress={() => { setDraft(d => ({ ...d, is_active: false })); saveDraft(); }}>
-                  <Text style={styles.secondaryTxt}>Save Inactive</Text>
-                </Pressable>
-              </View>
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }
 
+function PromptEditor({
+  title,
+  description,
+  systemPrompt,
+  userPrompt,
+  onSystemChange,
+  onUserChange,
+  onSave,
+  saving,
+}: {
+  title: string;
+  description: string;
+  systemPrompt: string;
+  userPrompt: string;
+  onSystemChange: (text: string) => void;
+  onUserChange: (text: string) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <View style={styles.promptCard}>
+      <Pressable style={styles.promptHeader} onPress={() => setExpanded(!expanded)}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.promptTitle}>{title}</Text>
+          <Text style={styles.promptDesc}>{description}</Text>
+        </View>
+        <Text style={styles.expandIcon}>{expanded ? '▼' : '▶'}</Text>
+      </Pressable>
+
+      {expanded && (
+        <View style={styles.promptBody}>
+          <Text style={styles.label}>System Prompt (AI Instructions)</Text>
+          <TextInput
+            style={styles.textArea}
+            multiline
+            numberOfLines={8}
+            value={systemPrompt}
+            onChangeText={onSystemChange}
+            placeholder="Enter system instructions for the AI..."
+            textAlignVertical="top"
+          />
+
+          <Text style={styles.label}>User Prompt (Task Description)</Text>
+          <TextInput
+            style={styles.textArea}
+            multiline
+            numberOfLines={6}
+            value={userPrompt}
+            onChangeText={onUserChange}
+            placeholder="Enter the user task prompt..."
+            textAlignVertical="top"
+          />
+
+          <Pressable
+            style={[styles.saveButton, saving && styles.buttonDisabled]}
+            onPress={onSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            )}
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: '700', color: colors.core },
-  btn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.primary, borderRadius: 10 },
-  btnTxt: { color: colors.white, fontWeight: '700' },
-
-  section: { paddingHorizontal: 16, paddingTop: 10 },
-  h: { color: colors.core, fontWeight: '700', marginBottom: 8 },
-  card: { backgroundColor: colors.white, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: colors.line, marginBottom: 12 },
-
-  rowHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  key: { color: colors.core, fontWeight: '700' },
-
-  version: { flexDirection: 'row', gap: 12, paddingVertical: 6, alignItems: 'center' },
-  meta: { color: '#6b7280', fontSize: 12 },
-  preview: { color: colors.core, marginTop: 4 },
-  badge: { marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden', fontSize: 12 },
-  active: { backgroundColor: '#DCFCE7', color: '#166534' },
-  inactive: { backgroundColor: '#F5F5F5', color: '#374151' },
-  actBtn: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.secondary, borderRadius: 8 },
-  actBtnTxt: { color: colors.white, fontWeight: '700' },
-
-  form: { backgroundColor: colors.white, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: colors.line, margin: 16 },
-  label: { color: colors.core, fontWeight: '600', marginTop: 8 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: colors.line, borderRadius: 10, padding: 10, color: colors.core, marginTop: 4 },
-  multiline: { minHeight: 220 },
-
-  primary: { backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
-  primaryTxt: { color: colors.white, fontWeight: '700' },
-  secondary: { backgroundColor: colors.gold, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
-  secondaryTxt: { color: colors.core, fontWeight: '700' },
+  container: {
+    flex: 1,
+    backgroundColor: colors.bgSoft,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  backButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.light,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.core,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.textLight,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  promptCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  promptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.white,
+  },
+  promptTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  promptDesc: {
+    fontSize: 13,
+    color: colors.textLight,
+  },
+  expandIcon: {
+    fontSize: 16,
+    color: colors.textLight,
+    marginLeft: 12,
+  },
+  promptBody: {
+    padding: 16,
+    paddingTop: 0,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.core,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  textArea: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 13,
+    color: colors.core,
+    minHeight: 120,
+    fontFamily: 'monospace',
+  },
+  saveButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  saveButtonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
 });

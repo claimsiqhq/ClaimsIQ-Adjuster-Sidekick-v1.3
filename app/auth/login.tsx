@@ -48,7 +48,15 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Claims iQ · Login</Text>
+      {/* Logo */}
+      <View style={styles.logoContainer}>
+        <View style={styles.logo}>
+          <Text style={styles.logoText}>iQ</Text>
+        </View>
+        <Text style={styles.brandTitle}>Claims iQ</Text>
+        <Text style={styles.brandSubtitle}>Sidekick</Text>
+      </View>
+      
       <View style={styles.card}>
         <Text style={styles.label}>Email</Text>
         <TextInput
@@ -83,17 +91,34 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgSoft, padding: 20, justifyContent: 'center' },
-  title: { fontSize: 24, fontWeight: '800', color: colors.core, textAlign: 'center', marginBottom: 20 },
+  logoContainer: { alignItems: 'center', marginBottom: 40 },
+  logo: { 
+    width: 80, 
+    height: 80, 
+    borderRadius: 20, 
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logoText: { fontSize: 32, fontWeight: '900', color: colors.white },
+  brandTitle: { fontSize: 28, fontWeight: '800', color: colors.primary, marginBottom: 4 },
+  brandSubtitle: { fontSize: 16, fontWeight: '600', color: colors.secondary, letterSpacing: 2 },
   card: { backgroundColor: colors.white, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.line },
   label: { color: colors.core, fontWeight: '600', marginTop: 8 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: colors.line, borderRadius: 10, padding: 10, color: colors.core, marginTop: 6 },
+  input: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, borderRadius: 10, padding: 10, color: colors.core, marginTop: 6 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   btn: { paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 12 },
   primary: { backgroundColor: colors.primary },
   secondary: { backgroundColor: colors.gold },
   btnTxt: { color: colors.white, fontWeight: '700' },
   btnTxtDark: { color: colors.core, fontWeight: '700' },
-  small: { color: '#6b7280' },
+  small: { color: colors.textLight },
   dim: { opacity: 0.6 },
-  hint: { textAlign: 'center', color: '#6b7280', marginTop: 12 }
+  hint: { textAlign: 'center', color: colors.textLight, marginTop: 12 }
 });
