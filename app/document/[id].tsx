@@ -212,10 +212,10 @@ function formatBytes(bytes: number): string {
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'completed': return { backgroundColor: '#10B981' };
-    case 'processing': return { backgroundColor: '#F59E0B' };
-    case 'error': return { backgroundColor: '#EF4444' };
-    default: return { backgroundColor: '#6B7280' };
+    case 'completed': return { backgroundColor: colors.success };
+    case 'processing': return { backgroundColor: colors.warning };
+    case 'error': return { backgroundColor: colors.error };
+    default: return { backgroundColor: colors.textLight };
   }
 }
 
@@ -256,23 +256,23 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   errorCard: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.errorBg,
     padding: 12,
     marginHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.error,
     marginBottom: 12,
   },
   errorTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#DC2626',
+    color: colors.error,
     marginBottom: 4,
   },
   errorText: {
     fontSize: 12,
-    color: '#991B1B',
+    color: colors.error,
   },
   infoRow: {
     flexDirection: 'row',
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
   },
   buttonDanger: {
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.error,
   },
   buttonDisabled: {
     opacity: 0.5,

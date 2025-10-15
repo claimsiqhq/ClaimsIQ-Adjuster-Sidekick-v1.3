@@ -54,7 +54,7 @@ export default function LiDARViewer({ width, height, scanData, visible = true }:
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.darkBg,
     borderRadius: 8,
     overflow: 'hidden',
   },
@@ -91,12 +91,12 @@ const styles = StyleSheet.create({
   placeholderSubtext: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.white,
     marginBottom: 8,
   },
   infoText: {
     fontSize: 13,
-    color: '#aaa',
+    color: colors.textMuted,
   },
 });
 

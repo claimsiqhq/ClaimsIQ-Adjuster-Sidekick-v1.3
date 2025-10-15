@@ -215,7 +215,7 @@ export default function LiDARScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: colors.black,
   },
   center: {
     flex: 1,
@@ -252,17 +252,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.darkBg,
   },
   placeholderText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.white,
     marginBottom: 8,
   },
   placeholderSubtext: {
     fontSize: 14,
-    color: '#aaa',
+    color: colors.textMuted,
     textAlign: 'center',
     paddingHorizontal: 40,
   },
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   statsText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.white,
     textAlign: 'center',
   },
   instructions: {
@@ -304,12 +304,12 @@ const styles = StyleSheet.create({
   instructionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.white,
     marginBottom: 12,
   },
   instructionText: {
     fontSize: 14,
-    color: '#ddd',
+    color: colors.textMuted,
     marginBottom: 6,
   },
   controls: {
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   stopButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.success,
     paddingVertical: 18,
     borderRadius: 12,
     alignItems: 'center',
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cancelButton: {
-    backgroundColor: '#6B7280',
+    backgroundColor: colors.textLight,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',

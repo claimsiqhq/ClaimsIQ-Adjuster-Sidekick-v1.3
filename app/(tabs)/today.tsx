@@ -314,14 +314,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   safetyBadge: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: colors.successBg,
     padding: 10,
     borderRadius: 8,
   },
   safetyText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#065F46',
+    color: colors.success,
   },
   alertsContainer: {
     paddingHorizontal: 16,
@@ -347,8 +347,8 @@ const styles = StyleSheet.create({
 
 function getSeverityColor(severity: string) {
   switch (severity) {
-    case 'extreme': return { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' };
-    case 'severe': return { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' };
-    default: return { backgroundColor: '#DBEAFE', borderColor: '#BFDBFE' };
+    case 'extreme': return { backgroundColor: colors.errorBg, borderColor: colors.error };
+    case 'severe': return { backgroundColor: colors.warningBg, borderColor: colors.warning };
+    default: return { backgroundColor: colors.infoBg, borderColor: colors.info };
   }
 }

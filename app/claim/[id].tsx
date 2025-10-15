@@ -467,10 +467,10 @@ const styles = StyleSheet.create({
 
 function getDocStatusColor(status: string) {
   switch (status) {
-    case 'completed': return { backgroundColor: '#10B981' };
-    case 'processing': return { backgroundColor: '#F59E0B' };
-    case 'error': return { backgroundColor: '#EF4444' };
-    default: return { backgroundColor: '#6B7280' };
+    case 'completed': return { backgroundColor: colors.success };
+    case 'processing': return { backgroundColor: colors.warning };
+    case 'error': return { backgroundColor: colors.error };
+    default: return { backgroundColor: colors.textLight };
   }
 }
 
