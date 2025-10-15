@@ -28,8 +28,7 @@
           "backgroundColor": "#F0E6FA"
         }
       ],
-      "expo-sqlite",
-      "./plugins/withLiDAR.js"
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
