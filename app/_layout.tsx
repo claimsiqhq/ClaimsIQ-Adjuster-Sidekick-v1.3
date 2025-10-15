@@ -56,6 +56,8 @@ export default function RootLayout() {
           <Stack.Screen name="admin" options={{ headerShown: false }} />
           <Stack.Screen name="photo" options={{ headerShown: false }} />
           <Stack.Screen name="claim" options={{ headerShown: false }} />
+          <Stack.Screen name="document" options={{ headerShown: false }} />
+          <Stack.Screen name="report" options={{ headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </ErrorBoundary>

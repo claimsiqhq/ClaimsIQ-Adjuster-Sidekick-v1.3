@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, Image
 import { colors } from '@/theme/colors';
 import { supabase } from '@/utils/supabase';
 import { listMedia, getPublicUrl, MediaItem } from '@/services/media';
+import { listDocuments, Document } from '@/services/documents';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
 
@@ -25,6 +26,7 @@ export default function ClaimDetailScreen() {
   const router = useRouter();
   const [claim, setClaim] = useState<ClaimDetail | null>(null);
   const [photos, setPhotos] = useState<MediaItem[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<ClaimDetail>>({});
@@ -53,6 +55,10 @@ export default function ClaimDetailScreen() {
       // Load photos for this claim
       const claimPhotos = await listMedia(100, { claim_id: id });
       setPhotos(claimPhotos);
+
+      // Load documents for this claim
+      const claimDocs = await listDocuments(id);
+      setDocuments(claimDocs);
     } catch (error: any) {
       console.error('Error loading claim:', error);
       Alert.alert('Error', 'Failed to load claim details');
@@ -182,11 +188,57 @@ export default function ClaimDetailScreen() {
               </Pressable>
             </>
           ) : (
-            <Pressable style={styles.btn} onPress={() => setEditing(true)}>
-              <Text style={styles.btnText}>Edit Claim</Text>
-            </Pressable>
+            <>
+              <Pressable style={[styles.btn, { flex: 0.6 }]} onPress={() => setEditing(true)}>
+                <Text style={styles.btnText}>Edit</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.btn, styles.btnSecondary, { flex: 1 }]} 
+                onPress={() => router.push(`/report/${id}`)}
+              >
+                <Text style={styles.btnTextDark}>📄 Generate Report</Text>
+              </Pressable>
+            </>
           )}
         </View>
+      </Section>
+
+      {/* Documents Section */}
+      <Section title={`Documents (${documents.length})`}>
+        <Pressable
+          style={styles.uploadButton}
+          onPress={() => router.push(`/document/upload?claimId=${id}`)}
+        >
+          <Text style={styles.uploadButtonText}>📄 Upload Document</Text>
+        </Pressable>
+
+        {documents.length === 0 ? (
+          <Text style={styles.emptyText}>
+            No documents yet. Upload FNOL, estimates, or other claim documents.
+          </Text>
+        ) : (
+          <View style={styles.documentList}>
+            {documents.map((doc) => (
+              <Pressable
+                key={doc.id}
+                style={styles.documentCard}
+                onPress={() => router.push(`/document/${doc.id}`)}
+              >
+                <View style={styles.documentInfo}>
+                  <Text style={styles.documentName} numberOfLines={1}>
+                    {doc.file_name}
+                  </Text>
+                  <Text style={styles.documentType}>{doc.document_type}</Text>
+                </View>
+                <View style={[styles.docStatusBadge, getDocStatusColor(doc.extraction_status)]}>
+                  <Text style={styles.docStatusText}>
+                    {doc.extraction_status === 'completed' && doc.document_type === 'fnol' ? '✓' : '•'}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </Section>
 
       {/* Photos Section */}
@@ -358,5 +410,67 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     textAlign: 'center',
   },
+  uploadButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  uploadButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  documentList: {
+    paddingHorizontal: 16,
+  },
+  documentCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    padding: 14,
+    marginBottom: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  documentInfo: {
+    flex: 1,
+  },
+  documentName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.core,
+    marginBottom: 4,
+  },
+  documentType: {
+    fontSize: 11,
+    color: '#9AA0A6',
+    textTransform: 'uppercase',
+  },
+  docStatusBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docStatusText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });
+
+function getDocStatusColor(status: string) {
+  switch (status) {
+    case 'completed': return { backgroundColor: '#10B981' };
+    case 'processing': return { backgroundColor: '#F59E0B' };
+    case 'error': return { backgroundColor: '#EF4444' };
+    default: return { backgroundColor: '#6B7280' };
+  }
+}
 
