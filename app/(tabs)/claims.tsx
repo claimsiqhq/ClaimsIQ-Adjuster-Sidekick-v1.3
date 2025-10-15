@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, View, Text, TextInput, Pressable, ActivityIndicator, FlatList } from "react-native";
+import { ScrollView, StyleSheet, View, Text, TextInput, Pressable, ActivityIndicator, FlatList, RefreshControl } from "react-native";
 import Header from "../../components/Header";
 import Section from "../../components/Section";
 import { colors } from "../../theme/colors";
@@ -19,17 +19,31 @@ export default function ClaimsScreen() {
   const [query, setQuery] = useState('');
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const router = useRouter();
 
-  async function loadClaims(searchQuery = '') {
+  async function loadClaims(searchQuery = '', refresh = false) {
     try {
-      setLoading(true);
-      const results = await listClaimsLike(searchQuery, 50);
+      if (refresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      
+      let results = await listClaimsLike(searchQuery, 50);
+      
+      // Apply status filter
+      if (statusFilter !== 'all') {
+        results = results.filter(c => c.status === statusFilter);
+      }
+      
       setClaims(results);
     } catch (e) {
       console.error('Failed to load claims:', e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -45,8 +59,34 @@ export default function ClaimsScreen() {
   }, [query]);
 
   return (
-    <ScrollView style={styles.container} contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled">
+    <ScrollView 
+      style={styles.container} 
+      contentInsetAdjustmentBehavior="automatic" 
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => loadClaims(query, true)} />
+      }
+    >
       <Header title="Claims" subtitle="Search, filter, and jump into a file." />
+      
+      {/* Status Filter */}
+      <View style={styles.filterRow}>
+        {['all', 'open', 'in_progress', 'completed', 'closed'].map(status => (
+          <Pressable
+            key={status}
+            style={[styles.filterChip, statusFilter === status && styles.filterChipActive]}
+            onPress={() => {
+              setStatusFilter(status);
+              loadClaims(query);
+            }}
+          >
+            <Text style={[styles.filterText, statusFilter === status && styles.filterTextActive]}>
+              {status.replace('_', ' ')}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      
       <View style={styles.searchWrap}>
         <TextInput 
           placeholder="Search claim #, insured, address…" 
