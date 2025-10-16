@@ -31,6 +31,13 @@ export default function ClaimsScreen() {
         setLoading(true);
       }
       
+      // Check if Supabase is configured
+      if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY) {
+        console.error('Supabase not configured - cannot load claims');
+        setClaims([]);
+        return;
+      }
+      
       let results = await listClaimsLike(searchQuery, 50);
       
       // Apply status filter
@@ -39,8 +46,12 @@ export default function ClaimsScreen() {
       }
       
       setClaims(results);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to load claims:', e);
+      // If it's a Supabase configuration error, just set empty claims
+      if (e?.message?.includes('Supabase is not configured')) {
+        setClaims([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -102,7 +113,16 @@ export default function ClaimsScreen() {
             <ActivityIndicator />
           </View>
         ) : claims.length === 0 ? (
-          <Text style={styles.sub}>No claims found. Start by assigning photos to a claim.</Text>
+          !process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY ? (
+            <View style={{ padding: 16, backgroundColor: '#FFF5F5', borderRadius: 10, borderWidth: 1, borderColor: '#FED7D7' }}>
+              <Text style={{ color: '#C53030', fontWeight: '600', marginBottom: 4 }}>⚠️ Supabase not configured</Text>
+              <Text style={{ color: '#742A2A', fontSize: 12 }}>
+                Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_API_KEY to your .env file
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.sub}>No claims found. Start by assigning photos to a claim.</Text>
+          )
         ) : (
           claims.map((claim) => (
             <Item 
@@ -125,5 +145,33 @@ const styles = StyleSheet.create({
   title: { fontWeight: "600", color: colors.core, marginBottom: 4 },
   sub: { color: colors.textLight },
   tag: { alignSelf: "flex-start", backgroundColor: colors.light, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginTop: 8 },
-  tagText: { color: colors.core, fontSize: 12, fontWeight: "600" }
+  tagText: { color: colors.core, fontSize: 12, fontWeight: "600" },
+  filterRow: { 
+    flexDirection: 'row', 
+    paddingHorizontal: 16, 
+    paddingBottom: 12, 
+    gap: 8, 
+    flexWrap: 'wrap' 
+  },
+  filterChip: { 
+    paddingHorizontal: 12, 
+    paddingVertical: 6, 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    borderColor: colors.line, 
+    backgroundColor: colors.white 
+  },
+  filterChipActive: { 
+    backgroundColor: colors.primary, 
+    borderColor: colors.primary 
+  },
+  filterText: { 
+    fontSize: 12, 
+    fontWeight: '600', 
+    color: colors.core, 
+    textTransform: 'capitalize' 
+  },
+  filterTextActive: { 
+    color: colors.white 
+  }
 });

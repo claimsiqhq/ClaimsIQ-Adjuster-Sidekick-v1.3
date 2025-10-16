@@ -35,10 +35,20 @@ export default function CaptureScreen() {
   async function loadGallery() {
     try {
       setLoading(true);
+      // Check if Supabase is configured
+      if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY) {
+        console.error('Supabase not configured - cannot load media');
+        setItems([]);
+        return;
+      }
       const rows = await listMedia(200);
       setItems(rows);
     } catch (e: any) {
       console.error('loadGallery error', e?.message ?? e);
+      // If it's a Supabase configuration error, just set empty items
+      if (e?.message?.includes('Supabase is not configured')) {
+        setItems([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -183,7 +193,20 @@ export default function CaptureScreen() {
                   </View>
                 </Pressable>
               )}
-              ListEmptyComponent={<View style={{ padding: 24, alignItems: 'center' }}><Text style={{ color: colors.core }}>No media yet. Take your first photo.</Text></View>}
+              ListEmptyComponent={
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  {!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY ? (
+                    <>
+                      <Text style={{ color: '#C53030', fontWeight: '600', marginBottom: 8 }}>⚠️ Supabase not configured</Text>
+                      <Text style={{ color: '#742A2A', textAlign: 'center', fontSize: 12 }}>
+                        Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_API_KEY to your .env file to enable photo storage
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={{ color: colors.core }}>No media yet. Take your first photo.</Text>
+                  )}
+                </View>
+              }
               refreshing={loading}
               onRefresh={loadGallery}
             />

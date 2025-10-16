@@ -63,6 +63,14 @@ export default function TodayScreen() {
         }
       }
       
+      // Check if Supabase is configured
+      if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY) {
+        console.error('Supabase not configured - skipping claims data');
+        setClaims([]);
+        setStats({ total: 0, inProgress: 0, dueToday: 0 });
+        return;
+      }
+      
       // Load all claims
       const { data: allClaims, error } = await supabase
         .from('claims')
@@ -91,8 +99,13 @@ export default function TodayScreen() {
         inProgress,
         dueToday,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading today data:', error);
+      // If it's a Supabase configuration error, show a helpful message
+      if (error.message?.includes('Supabase is not configured')) {
+        setClaims([]);
+        setStats({ total: 0, inProgress: 0, dueToday: 0 });
+      }
     } finally {
       setLoading(false);
     }
@@ -133,7 +146,14 @@ export default function TodayScreen() {
       </Section>
 
       <Section title="Active Claims Watchlist">
-        {watchlistClaims.length === 0 ? (
+        {!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY ? (
+          <View style={styles.configWarning}>
+            <Text style={styles.configWarningText}>⚠️ Supabase not configured</Text>
+            <Text style={styles.configWarningSubtext}>
+              Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_API_KEY to your .env file
+            </Text>
+          </View>
+        ) : watchlistClaims.length === 0 ? (
           <Text style={styles.emptyText}>No active claims. Great work!</Text>
         ) : (
           watchlistClaims.map((claim) => (
@@ -369,6 +389,24 @@ const styles = StyleSheet.create({
   alertDesc: {
     fontSize: 12,
     color: '#92400E',
+  },
+  configWarning: {
+    backgroundColor: '#FFF5F5',
+    padding: 16,
+    marginHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FED7D7',
+  },
+  configWarningText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#C53030',
+    marginBottom: 4,
+  },
+  configWarningSubtext: {
+    fontSize: 12,
+    color: '#742A2A',
   },
 });
 
