@@ -139,6 +139,11 @@ export default function ClaimsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgSoft },
+  filterRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, marginBottom: 12, flexWrap: 'wrap' },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
+  filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterText: { fontSize: 12, fontWeight: '600', color: colors.textLight, textTransform: 'capitalize' },
+  filterTextActive: { color: colors.white },
   searchWrap: { paddingHorizontal: 16, marginBottom: 8 },
   input: { backgroundColor: colors.white, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.line, color: colors.core },
   card: { backgroundColor: colors.white, padding: 16, borderRadius: 16, borderWidth: 2, borderLeftWidth: 4, borderLeftColor: colors.primary, borderColor: colors.light, marginBottom: 10 },
