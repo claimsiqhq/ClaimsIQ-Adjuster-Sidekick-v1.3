@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/theme/colors';
 import { LiDARScannerView, lidarScanner } from '@/modules/lidar';
 import { startLiDARScan, stopLiDARScan, saveScan, checkLiDARSupport, getScanStats } from '@/services/lidar';
-import ModelViewer from '@/components/ModelViewer';
+// import ModelViewer from '@/components/ModelViewer'; // Temporarily disabled - causes blank screen
 
 export default function LiDARScanScreen() {
   const { claimId } = useLocalSearchParams<{ claimId: string }>();
@@ -149,12 +149,14 @@ export default function LiDARScanScreen() {
           </Text>
         </View>
 
-        <ModelViewer
-          modelPath={scanResult.filePath}
-          dimensions={scanResult.dimensions}
-          width={screenWidth}
-          height={400}
-        />
+        {/* ModelViewer temporarily disabled - use simple preview */}
+        <View style={{ width: screenWidth, height: 400, backgroundColor: colors.darkBg, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 48, marginBottom: 12 }}>📐</Text>
+          <Text style={{ color: colors.white, fontSize: 18, fontWeight: '600' }}>Scan Preview</Text>
+          <Text style={{ color: colors.textMuted, marginTop: 8 }}>
+            {scanResult.pointCount.toLocaleString()} points captured
+          </Text>
+        </View>
 
         <View style={styles.previewControls}>
           <Pressable
