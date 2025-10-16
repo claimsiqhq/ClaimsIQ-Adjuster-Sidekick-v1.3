@@ -41,6 +41,13 @@ export default function MapScreen() {
         console.log('Location permission denied or unavailable');
       }
 
+      // Check if Supabase is configured
+      if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY) {
+        console.error('Supabase not configured - cannot load claims');
+        setClaims([]);
+        return;
+      }
+
       // Load claims with locations
       const { data, error } = await supabase
         .from('claims')
@@ -64,6 +71,10 @@ export default function MapScreen() {
       setClaims(claimsWithCoords.filter(c => c.coordinates !== null));
     } catch (error: any) {
       console.error('Map data error:', error);
+      // If it's a Supabase configuration error, just set empty claims
+      if (error?.message?.includes('Supabase is not configured')) {
+        setClaims([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -180,7 +191,14 @@ export default function MapScreen() {
 
       <ScrollView style={styles.bottomSheet}>
         <Section title={route ? `Route (${route.stops.length} stops)` : "Today's Claims"}>
-          {route ? (
+          {!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY ? (
+            <View style={styles.configWarning}>
+              <Text style={styles.configWarningText}>⚠️ Supabase not configured</Text>
+              <Text style={styles.configWarningSubtext}>
+                Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_API_KEY to your .env file to enable claims mapping
+              </Text>
+            </View>
+          ) : route ? (
             <View style={styles.routeInfo}>
               <View style={styles.routeStat}>
                 <Text style={styles.routeStatValue}>{route.totalDistance.toFixed(1)} km</Text>
@@ -230,6 +248,7 @@ export default function MapScreen() {
               </Text>
             )}
           </Pressable>
+          )}
         </Section>
       </ScrollView>
     </View>
@@ -358,5 +377,23 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  configWarning: {
+    backgroundColor: '#FFF5F5',
+    padding: 16,
+    marginHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FED7D7',
+  },
+  configWarningText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#C53030',
+    marginBottom: 4,
+  },
+  configWarningSubtext: {
+    fontSize: 12,
+    color: '#742A2A',
   },
 });
