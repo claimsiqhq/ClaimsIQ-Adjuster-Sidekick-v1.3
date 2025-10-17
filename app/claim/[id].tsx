@@ -6,6 +6,7 @@ import { colors } from '@/theme/colors';
 import { supabase } from '@/utils/supabase';
 import { listMedia, getPublicUrl, MediaItem } from '@/services/media';
 import { listDocuments, Document } from '@/services/documents';
+import WorkflowChecklist from '@/components/WorkflowChecklist';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
 
@@ -201,6 +202,23 @@ export default function ClaimDetailScreen() {
             </>
           )}
         </View>
+      </Section>
+
+      {/* Inspection Workflow Section */}
+      <Section title="Inspection Workflow">
+        <WorkflowChecklist 
+          claimId={id} 
+          onWorkflowComplete={() => {
+            Alert.alert(
+              'Workflow Complete!',
+              'All inspection tasks are done. Ready to generate report or close claim?',
+              [
+                { text: 'Later', style: 'cancel' },
+                { text: 'Generate Report', onPress: () => router.push(`/report/${id}`) },
+              ]
+            );
+          }}
+        />
       </Section>
 
       {/* Documents Section */}

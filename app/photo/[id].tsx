@@ -68,6 +68,48 @@ export default function PhotoDetail() {
         </View>
       </View>
 
+      {/* Photo Quality Metrics */}
+      {media.qc && (
+        <View style={styles.panel}>
+          <Text style={styles.h}>Photo Quality</Text>
+          
+          {typeof media.qc.blur_score === 'number' && (
+            <View style={styles.qcRow}>
+              <Text style={styles.qcLabel}>Blur Score:</Text>
+              <View style={styles.qcValue}>
+                <Text style={[styles.qcText, media.qc.blur_score > 0.5 && styles.qcWarning]}>
+                  {(media.qc.blur_score * 100).toFixed(0)}%
+                </Text>
+                {media.qc.blur_score > 0.5 && (
+                  <Text style={styles.qcBadge}>⚠️ Consider retaking</Text>
+                )}
+              </View>
+            </View>
+          )}
+          
+          {typeof media.qc.glare === 'boolean' && media.qc.glare && (
+            <View style={styles.qcRow}>
+              <Text style={styles.qcLabel}>Glare Detected:</Text>
+              <Text style={styles.qcWarning}>⚠️ Yes - may affect analysis</Text>
+            </View>
+          )}
+          
+          {typeof media.qc.underexposed === 'boolean' && media.qc.underexposed && (
+            <View style={styles.qcRow}>
+              <Text style={styles.qcLabel}>Lighting:</Text>
+              <Text style={styles.qcWarning}>⚠️ Underexposed - too dark</Text>
+            </View>
+          )}
+          
+          {typeof media.qc.distance_hint_m === 'number' && (
+            <View style={styles.qcRow}>
+              <Text style={styles.qcLabel}>Distance:</Text>
+              <Text style={styles.qcText}>~{media.qc.distance_hint_m.toFixed(1)}m</Text>
+            </View>
+          )}
+        </View>
+      )}
+
       <View style={styles.panel}>
         <Text style={styles.h}>Detections ({detections.length})</Text>
         {detections.map((d) => (
@@ -96,5 +138,39 @@ const styles = StyleSheet.create({
   det: { paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   detTitle: { color: colors.core, fontWeight: '600' },
   detSub: { color: '#5F6771' },
-  badge: { marginTop: 4, alignSelf: 'flex-start', backgroundColor: '#F1EEFF', color: colors.core, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden' },
+  badge: { marginTop: 4, alignSelf: 'flex-start', backgroundColor: colors.light, color: colors.core, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden' },
+  qcRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  qcLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.core,
+  },
+  qcValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  qcText: {
+    fontSize: 14,
+    color: colors.textLight,
+  },
+  qcWarning: {
+    color: colors.warning,
+    fontWeight: '600',
+  },
+  qcBadge: {
+    fontSize: 11,
+    color: colors.warning,
+    backgroundColor: colors.warningBg,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
 });
