@@ -1,4 +1,5 @@
 // services/auth.ts
+import { Platform } from 'react-native';
 import { supabase } from '@/utils/supabase';
 import * as SecureStore from 'expo-secure-store';
 
@@ -64,21 +65,35 @@ export async function signOut() {
 }
 
 export async function getDevCreds() {
-  const r = await SecureStore.getItemAsync(KEY_REMEMBER);
-  if (r !== '1') return { email: DEV_EMAIL, password: DEV_PASS, remember: false };
-  const email = (await SecureStore.getItemAsync(KEY_EMAIL)) ?? DEV_EMAIL;
-  const password = (await SecureStore.getItemAsync(KEY_PASS)) ?? DEV_PASS;
-  return { email, password, remember: true };
+  try {
+    // SecureStore may not be available in development builds
+    if (Platform.OS === 'ios') {
+      const r = await SecureStore.getItemAsync(KEY_REMEMBER).catch(() => null);
+      if (r !== '1') return { email: DEV_EMAIL, password: DEV_PASS, remember: false };
+      const email = (await SecureStore.getItemAsync(KEY_EMAIL).catch(() => null)) ?? DEV_EMAIL;
+      const password = (await SecureStore.getItemAsync(KEY_PASS).catch(() => null)) ?? DEV_PASS;
+      return { email, password, remember: true };
+    }
+  } catch (error) {
+    console.log('SecureStore not available, using defaults');
+  }
+  return { email: DEV_EMAIL, password: DEV_PASS, remember: false };
 }
 
 export async function setDevCreds(email: string, password: string, remember: boolean) {
-  if (remember) {
-    await SecureStore.setItemAsync(KEY_EMAIL, email);
-    await SecureStore.setItemAsync(KEY_PASS, password);
-    await SecureStore.setItemAsync(KEY_REMEMBER, '1');
-  } else {
-    await SecureStore.deleteItemAsync(KEY_EMAIL);
-    await SecureStore.deleteItemAsync(KEY_PASS);
-    await SecureStore.deleteItemAsync(KEY_REMEMBER);
+  try {
+    if (Platform.OS === 'ios') {
+      if (remember) {
+        await SecureStore.setItemAsync(KEY_EMAIL, email).catch(() => {});
+        await SecureStore.setItemAsync(KEY_PASS, password).catch(() => {});
+        await SecureStore.setItemAsync(KEY_REMEMBER, '1').catch(() => {});
+      } else {
+        await SecureStore.deleteItemAsync(KEY_EMAIL).catch(() => {});
+        await SecureStore.deleteItemAsync(KEY_PASS).catch(() => {});
+        await SecureStore.deleteItemAsync(KEY_REMEMBER).catch(() => {});
+      }
+    }
+  } catch (error) {
+    console.log('SecureStore not available for saving credentials');
   }
 }
