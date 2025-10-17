@@ -2,7 +2,7 @@ import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from '
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { getClaims } from '@/services/claims';
-import { useAuth } from '@/services/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { useClaimStore } from '@/store/useClaimStore';
 import { colors } from '@/theme/colors';
 import { handleAppError } from '@/utils/errors';
