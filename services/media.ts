@@ -73,6 +73,16 @@ export async function insertMediaRow(row: Partial<MediaItem>): Promise<MediaItem
   return data as MediaItem;
 }
 
+export async function getMediaForClaim(claimId: string): Promise<MediaItem[]> {
+  const { data, error } = await supabase
+    .from('media')
+    .select('*')
+    .eq('claim_id', claimId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as MediaItem[];
+}
+
 export async function listMedia(limit = 100, filters?: MediaFilters): Promise<MediaItem[]> {
   let query = supabase.from('media').select('*');
   
