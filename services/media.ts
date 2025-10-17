@@ -149,7 +149,21 @@ export async function listMedia(limit = 100, filters?: MediaFilters): Promise<Me
 export async function getMediaById(id: string): Promise<MediaItem | null> {
   const { data, error } = await supabase.from('media').select('*').eq('id', id).maybeSingle();
   if (error) return null;
-  return (data as MediaItem) ?? null;
+  
+  // Transform the data to match the expected format for Photo Detail Screen
+  if (data) {
+    const mediaItem = data as MediaItem;
+    // Get public URL if we have a storage path
+    const publicUrl = getPublicUrl(mediaItem.storage_path);
+    
+    return {
+      ...mediaItem,
+      public_url: publicUrl || '',
+      status: mediaItem.status as any,
+      annotations: mediaItem.annotation_json as any
+    } as any;
+  }
+  return null;
 }
 
 export function getPublicUrl(path: string | null | undefined): string | null {
