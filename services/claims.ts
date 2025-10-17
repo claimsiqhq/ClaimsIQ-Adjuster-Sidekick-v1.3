@@ -26,3 +26,22 @@ export async function listClaimsLike(query: string, limit = 20): Promise<Claim[]
   if (error) throw error;
   return (data ?? []) as Claim[];
 }
+
+export async function getClaims(userId: string): Promise<Claim[]> {
+  const { data, error } = await supabase
+    .from('claims')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Claim[];
+}
+
+export async function getClaimById(id: string): Promise<Claim | null> {
+  const { data, error } = await supabase
+    .from('claims')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) return null;
+  return data as Claim;
+}
