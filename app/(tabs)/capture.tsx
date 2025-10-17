@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { router } from 'expo-router';
 import { colors } from '@/theme/colors';
 import { uploadMedia } from '@/services/media';
-import { useAuth } from '@/services/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { useClaimStore } from '@/store/useClaimStore'; // Import the new store
 import { handleAppError } from '@/utils/errors';
 
