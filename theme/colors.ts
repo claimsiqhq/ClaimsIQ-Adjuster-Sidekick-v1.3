@@ -35,6 +35,12 @@ export const colors = {
   errorBg: '#FEE2E2',      // Light red background
   warningBg: '#FEF3C7',    // Light yellow background
   infoBg: '#DBEAFE',       // Light blue background
+  
+  // Aliases for expert's code compatibility
+  bg: '#F5F3F7',          // Alias for bgSoft
+  border: '#E5E7EB',      // Alias for line
+  text: '#2B2F36',        // Alias for core
+  textSoft: '#6B7280',    // Alias for textLight
 } as const;
 
 export type ColorKey = keyof typeof colors;

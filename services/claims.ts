@@ -4,6 +4,8 @@ export interface Claim {
   id: string;
   created_at: string;
   claim_number: string | null;
+  policy_number?: string | null;
+  status?: string | null;
 }
 
 export async function getOrCreateClaimByNumber(claim_number: string): Promise<Claim> {
