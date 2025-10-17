@@ -1,4 +1,5 @@
 import { supabase } from '@/utils/supabase';
+import { invokeAnnotation } from '@/services/annotate';
 
 export type MediaType = 'photo' | 'lidar_room';
 export type MediaStatus = 'pending' | 'uploading' | 'uploaded' | 'annotating' | 'done' | 'error';
