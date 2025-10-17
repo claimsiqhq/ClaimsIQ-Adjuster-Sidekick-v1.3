@@ -14,10 +14,15 @@ export default function LoginScreen() {
 
   useEffect(() => {
     (async () => {
-      const dev = await getDevCreds();
-      setEmail(dev.email);
-      setPassword(dev.password);
-      setRemember(dev.remember);
+      try {
+        const dev = await getDevCreds();
+        setEmail(dev.email);
+        setPassword(dev.password);
+        setRemember(dev.remember);
+      } catch (error) {
+        console.log('Error loading dev creds:', error);
+        // Continue without pre-filled credentials
+      }
     })();
   }, []);
 
