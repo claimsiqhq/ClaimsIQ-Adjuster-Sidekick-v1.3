@@ -1,0 +1,107 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import OpenAI from 'https://deno.land/x/openai@v4.52.7/mod.ts';
+
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+});
+
+serve(async (req) => {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    const { record } = await req.json();
+    const { id: mediaId, claim_id, storage_path } = record;
+
+    // Create a Supabase client with the service role key
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // 1. Get a signed URL for the image
+    const { data: urlData, error: urlError } = await supabaseAdmin.storage
+      .from('media')
+      .createSignedUrl(storage_path, 60); // URL is valid for 60 seconds
+
+    if (urlError) throw urlError;
+
+    // 2. Call OpenAI Vision API
+    const visionPrompt = `
+      You are an expert insurance adjuster's assistant. Analyze the following image from a property damage claim. 
+      Identify all visible damage, materials involved, and potential causes.
+      Provide a structured JSON response with the following keys:
+      - "summary": A one-sentence summary of the image.
+      - "damage_type": A string describing the primary type of damage (e.g., "Water Damage", "Fire Damage", "Impact Damage", "Hail Damage", "Wind Damage", "No Damage Visible").
+      - "materials": An array of strings listing the materials visible (e.g., "Drywall", "Wood Studs", "Copper Pipe", "Asphalt Shingles").
+      - "estimated_severity": A string rating the severity on a scale of "Low", "Medium", "High", or "Critical".
+      - "recommended_action": A brief suggestion for the next step (e.g., "Recommend moisture reading", "Requires structural assessment", "Proceed with standard cleaning").
+      - "details": A bullet-point list of specific observations.
+    `;
+    
+    const response = await openai.chat.completions.create({
+        model: "gpt-4-vision-preview",
+        messages: [
+            {
+                role: "user",
+                content: [
+                    { type: "text", text: visionPrompt },
+                    {
+                        type: "image_url",
+                        image_url: {
+                            url: urlData.signedUrl,
+                        },
+                    },
+                ],
+            },
+        ],
+        max_tokens: 500,
+    });
+    
+    const annotationText = response.choices[0].message?.content;
+    if (!annotationText) {
+        throw new Error("OpenAI did not return any content.");
+    }
+
+    // 3. Parse the JSON response from OpenAI
+    let annotationJson;
+    try {
+        // The response might be wrapped in markdown ```json ... ```, so we clean it.
+        const cleanedJsonString = annotationText.replace(/^```json\n|```$/g, '');
+        annotationJson = JSON.parse(cleanedJsonString);
+    } catch (e) {
+        console.error("Failed to parse JSON from OpenAI:", annotationText);
+        throw new Error("Could not parse AI response.");
+    }
+
+
+    // 4. Update the 'media' table with the annotation
+    const { error: updateError } = await supabaseAdmin
+      .from('media')
+      .update({ annotations: annotationJson, status: 'annotated' })
+      .eq('id', mediaId);
+
+    if (updateError) throw updateError;
+
+    return new Response(JSON.stringify({ success: true, annotation: annotationJson }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 200,
+    });
+
+  } catch (error) {
+    console.error('Error in vision-annotate function:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 500,
+    });
+  }
+});
