@@ -83,6 +83,52 @@ export async function getMediaForClaim(claimId: string): Promise<MediaItem[]> {
   return (data ?? []) as MediaItem[];
 }
 
+// Simplified upload function for the expert's capture screen
+export async function uploadMedia(base64Data: string, claimId: string, userId: string): Promise<MediaItem | null> {
+  try {
+    // Generate a unique filename
+    const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+    const path = `photos/${filename}`;
+    
+    // Convert base64 to blob and upload to storage
+    const blob = await fetch(`data:image/jpeg;base64,${base64Data}`).then(r => r.blob());
+    const { error: uploadError } = await supabase.storage
+      .from('media')
+      .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    
+    if (uploadError) throw uploadError;
+    
+    // Create media record in database
+    const mediaRecord: Partial<MediaItem> = {
+      user_id: userId,
+      claim_id: claimId,
+      type: 'photo',
+      status: 'pending',
+      storage_path: path,
+    };
+    
+    const { data, error: dbError } = await supabase
+      .from('media')
+      .insert(mediaRecord)
+      .select('*')
+      .single();
+    
+    if (dbError) throw dbError;
+    
+    // Trigger annotation if available
+    try {
+      await invokeAnnotation(data.id);
+    } catch (e) {
+      console.log('Annotation service not available:', e);
+    }
+    
+    return data as MediaItem;
+  } catch (error) {
+    console.error('Upload failed:', error);
+    throw error;
+  }
+}
+
 export async function listMedia(limit = 100, filters?: MediaFilters): Promise<MediaItem[]> {
   let query = supabase.from('media').select('*');
   
