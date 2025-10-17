@@ -1,0 +1,56 @@
+Code Review & Enhancement Report: ClaimsIQ Adjuster Sidekick
+
+Version: 02f6f7a
+Date: 2025-10-17 (Updated)
+
+This document provides a comprehensive review of the ClaimsIQ Adjuster Sidekick codebase. The changes since the last review (e.g., adding a config plugin) are positive. However, critical issues related to state management and real-time data remain.
+
+1. High-Priority Unresolved Issues
+
+1.1. CRITICAL: Hardcoded Claim ID in capture.tsx
+
+Issue: The takePicture function in app/(tabs)/capture.tsx still contains a hardcoded claimId.
+
+Impact: This remains the most critical bug. All photos taken will be associated with an incorrect or non-existent claim, making the core feature of the app unusable.
+
+Resolution: A global state management solution is essential. The activeClaimId must be set when a user selects a claim and read by the capture.tsx screen. I am providing code to implement this using Zustand.
+
+1.2. Missing Real-time Data on Key Screens
+
+Issue: The app/claim/[id].tsx and app/photo/[id].tsx screens fetch their data only once when they load. They do not update automatically when data changes in the backend (e.g., when an AI annotation is completed).
+
+Impact: The user is forced to manually refresh to see new information, leading to a poor and confusing experience.
+
+Resolution: These screens must be refactored to use Supabase's real-time subscription capabilities. I will provide an updated claim/[id].tsx file that demonstrates how to implement this.
+
+1.3. Inconsistent Error Handling & Lack of User Feedback
+
+Issue: Many data-fetching functions in the services/ directory catch errors but only log them to the console. The user is never notified of the failure.
+
+Impact: The app can fail silently, leaving the user wondering why data isn't loading or actions aren't completing.
+
+Resolution: A centralized error handler should be created to standardize how errors are logged and how they are presented to the user via an Alert. I am providing a utility for this.
+
+2. New Findings & Observations
+
+Good Practice (Config Plugin): The addition of plugins/withLiDAR.js is an excellent choice. It properly automates the modification of native project configurations (Info.plist), making your build process cleaner and more reliable.
+
+Good Practice (Module Wrapper): The modules/lidar/index.ts file is a great pattern. It creates a clean, type-safe API boundary between your React Native code and the native module, improving maintainability.
+
+New Feature (workflow-generate): The new Supabase function to generate inspection workflows is a powerful feature. The implementation looks solid, correctly using the OpenAI API. To enhance it, consider adding more robust error handling within the function itself and perhaps input validation to ensure the claim_type is always valid.
+
+3. Action Plan & Provided Code
+
+To resolve the critical issues, I am providing the following new and updated files:
+
+store/useClaimStore.ts (New): A simple global state manager for the activeClaimId.
+
+utils/errors.ts (New): A centralized utility for handling and displaying errors.
+
+app/(tabs)/claims.tsx (Update): Modified to set the active claim in the global store.
+
+app/(tabs)/capture.tsx (Update): Modified to read the active claim from the global store.
+
+app/claim/[id].tsx (Update): Refactored to use real-time subscriptions for live data updates.
+
+Please integrate these files to fix the core functionality of the application. The remaining enhancement opportunities from the previous review (optimistic UI, skeleton loaders, etc.) are still highly recommended for improving the overall user experience.
