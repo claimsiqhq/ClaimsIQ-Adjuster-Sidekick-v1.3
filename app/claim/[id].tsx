@@ -7,6 +7,8 @@ import { supabase } from '@/utils/supabase'; // Import the supabase client
 import { colors } from '@/theme/colors';
 import { useClaimStore } from '@/store/useClaimStore';
 import { handleAppError } from '@/utils/errors';
+import { getHistoricalWeather, Weather } from '@/services/weather';
+import { geocodeAddress } from '@/services/location';
 
 // Define types for better code clarity
 type Claim = { id: string; claim_number: string; policy_number: string; };
@@ -18,6 +20,7 @@ export default function ClaimDetailScreen() {
   const [claim, setClaim] = useState<Claim | null>(null);
   const [media, setMedia] = useState<Media[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lossWeather, setLossWeather] = useState<Weather | null>(null);
   const { setActiveClaimId } = useClaimStore();
 
   useEffect(() => {
@@ -34,6 +37,24 @@ export default function ClaimDetailScreen() {
         const mediaItems = await getMediaForClaim(id);
         setClaim(claimDetails);
         setMedia(mediaItems || []);
+
+        // Load historical weather if loss_date and location available
+        if (claimDetails?.loss_date && claimDetails?.loss_location) {
+          try {
+            const coords = await geocodeAddress(claimDetails.loss_location);
+            if (coords) {
+              const lossDate = new Date(claimDetails.loss_date).toISOString().split('T')[0];
+              const weather = await getHistoricalWeather(
+                coords.latitude,
+                coords.longitude,
+                lossDate
+              );
+              setLossWeather(weather);
+            }
+          } catch (error) {
+            console.log('Historical weather unavailable:', error);
+          }
+        }
       } catch (error) {
         handleAppError(error, 'Failed to load claim details.');
       } finally {
@@ -82,6 +103,15 @@ export default function ClaimDetailScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>{claim.claim_number}</Text>
         <Text style={styles.subtitle}>Policy: {claim.policy_number}</Text>
+        
+        {lossWeather && (
+          <View style={styles.weatherBanner}>
+            <Text style={styles.weatherLabel}>Weather on Date of Loss:</Text>
+            <Text style={styles.weatherValue}>
+              {Math.round(lossWeather.temperature)}°F • {lossWeather.condition} • Wind: {Math.round(lossWeather.windSpeed)} mph
+            </Text>
+          </View>
+        )}
       </View>
       <FlatList
         data={media}
@@ -122,4 +152,23 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     emptyText: { textAlign: 'center', marginTop: 20, color: colors.textSoft },
+  weatherBanner: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: colors.light,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  weatherLabel: {
+    fontSize: 12,
+    color: colors.textLight,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  weatherValue: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '700',
+  },
 });

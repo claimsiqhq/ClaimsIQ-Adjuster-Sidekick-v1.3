@@ -1,8 +1,8 @@
 // services/weather.ts
-// Weather API integration using EXPO_PUBLIC_WEATHER_API_KEY
+// Weatherbit.io API integration
 
 const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY;
-const WEATHER_API_BASE = 'https://api.weatherapi.com/v1'; // or OpenWeatherMap
+const WEATHER_API_BASE = 'https://api.weatherbit.io/v2.0';
 
 export interface Weather {
   temperature: number;
@@ -29,7 +29,7 @@ export interface Forecast {
 }
 
 /**
- * Get current weather for a location
+ * Get current weather for a location using Weatherbit.io
  */
 export async function getWeather(lat: number, lon: number): Promise<Weather | null> {
   if (!WEATHER_API_KEY) {
@@ -39,25 +39,75 @@ export async function getWeather(lat: number, lon: number): Promise<Weather | nu
 
   try {
     const response = await fetch(
-      `${WEATHER_API_BASE}/current.json?key=${WEATHER_API_KEY}&q=${lat},${lon}&aqi=no`
+      `${WEATHER_API_BASE}/current?lat=${lat}&lon=${lon}&key=${WEATHER_API_KEY}`
     );
 
     if (!response.ok) {
       throw new Error('Weather API request failed');
     }
 
-    const data = await response.json();
+    const result = await response.json();
+    
+    if (!result.data || result.data.length === 0) {
+      return null;
+    }
+
+    const data = result.data[0];
     
     return {
-      temperature: data.current.temp_f,
-      condition: data.current.condition.text,
-      icon: data.current.condition.icon,
-      windSpeed: data.current.wind_mph,
-      humidity: data.current.humidity,
-      feelsLike: data.current.feelslike_f,
+      temperature: data.temp * 1.8 + 32, // Convert Celsius to Fahrenheit
+      condition: data.weather.description,
+      icon: data.weather.icon,
+      windSpeed: data.wind_spd * 2.237, // Convert m/s to mph
+      humidity: data.rh,
+      feelsLike: data.app_temp * 1.8 + 32,
     };
   } catch (error: any) {
     console.error('Weather fetch error:', error);
+    return null;
+  }
+}
+
+/**
+ * Get historical weather for a specific date using Weatherbit.io
+ */
+export async function getHistoricalWeather(
+  lat: number,
+  lon: number,
+  date: string  // YYYY-MM-DD format
+): Promise<Weather | null> {
+  if (!WEATHER_API_KEY) {
+    console.warn('Weather API key not configured');
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `${WEATHER_API_BASE}/history/daily?lat=${lat}&lon=${lon}&start_date=${date}&end_date=${date}&key=${WEATHER_API_KEY}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Historical weather request failed');
+    }
+
+    const result = await response.json();
+    
+    if (!result.data || result.data.length === 0) {
+      return null;
+    }
+
+    const data = result.data[0];
+    
+    return {
+      temperature: data.temp * 1.8 + 32,
+      condition: data.weather.description,
+      icon: data.weather.icon,
+      windSpeed: data.wind_spd * 2.237,
+      humidity: data.rh,
+      feelsLike: data.temp * 1.8 + 32, // Historical doesn't have app_temp, use temp
+    };
+  } catch (error: any) {
+    console.error('Historical weather error:', error);
     return null;
   }
 }
@@ -70,19 +120,19 @@ export async function getWeatherAlerts(lat: number, lon: number): Promise<Weathe
 
   try {
     const response = await fetch(
-      `${WEATHER_API_BASE}/forecast.json?key=${WEATHER_API_KEY}&q=${lat},${lon}&alerts=yes&days=1`
+      `${WEATHER_API_BASE}/alerts?lat=${lat}&lon=${lon}&key=${WEATHER_API_KEY}`
     );
 
     if (!response.ok) return [];
 
-    const data = await response.json();
-    const alerts = data.alerts?.alert || [];
+    const result = await response.json();
+    const alerts = result.alerts || [];
 
     return alerts.map((alert: any) => ({
-      headline: alert.headline,
+      headline: alert.title,
       severity: mapSeverity(alert.severity),
-      description: alert.desc,
-      expires: alert.expires,
+      description: alert.description,
+      expires: alert.expires_utc,
     }));
   } catch (error) {
     console.error('Weather alerts error:', error);
@@ -98,20 +148,20 @@ export async function getWeatherForecast(lat: number, lon: number, days: number 
 
   try {
     const response = await fetch(
-      `${WEATHER_API_BASE}/forecast.json?key=${WEATHER_API_KEY}&q=${lat},${lon}&days=${days}&aqi=no&alerts=no`
+      `${WEATHER_API_BASE}/forecast/daily?lat=${lat}&lon=${lon}&days=${days}&key=${WEATHER_API_KEY}`
     );
 
     if (!response.ok) return [];
 
-    const data = await response.json();
-    const forecastDays = data.forecast?.forecastday || [];
+    const result = await response.json();
+    const forecastDays = result.data || [];
 
     return forecastDays.map((day: any) => ({
-      date: day.date,
-      high: day.day.maxtemp_f,
-      low: day.day.mintemp_f,
-      condition: day.day.condition.text,
-      precipChance: day.day.daily_chance_of_rain,
+      date: day.valid_date,
+      high: day.high_temp * 1.8 + 32,
+      low: day.low_temp * 1.8 + 32,
+      condition: day.weather.description,
+      precipChance: day.pop, // Probability of precipitation
     }));
   } catch (error) {
     console.error('Forecast error:', error);
@@ -121,9 +171,9 @@ export async function getWeatherForecast(lat: number, lon: number, days: number 
 
 function mapSeverity(severity: string): 'minor' | 'moderate' | 'severe' | 'extreme' {
   const s = severity.toLowerCase();
-  if (s.includes('extreme')) return 'extreme';
-  if (s.includes('severe')) return 'severe';
-  if (s.includes('moderate')) return 'moderate';
+  if (s.includes('extreme') || s.includes('red')) return 'extreme';
+  if (s.includes('severe') || s.includes('orange')) return 'severe';
+  if (s.includes('moderate') || s.includes('yellow')) return 'moderate';
   return 'minor';
 }
 
@@ -142,4 +192,3 @@ export function isSafeForRoofInspection(weather: Weather): { safe: boolean; reas
   }
   return { safe: true };
 }
-
