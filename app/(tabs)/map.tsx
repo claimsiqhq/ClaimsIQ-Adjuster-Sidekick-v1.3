@@ -248,7 +248,6 @@ export default function MapScreen() {
               </Text>
             )}
           </Pressable>
-          )}
         </Section>
       </ScrollView>
     </View>

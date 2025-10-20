@@ -48,7 +48,7 @@ export default function TabLayout() {
         name="claims"
         options={{
           title: "Claims",
-          tabBarIcon: ({ color, size }) => <Ionicons name="folder-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="folder-outline" size={size || 24} color={color} />,
         }}
       />
       <Tabs.Screen
