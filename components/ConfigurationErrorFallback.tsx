@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { colors } from '@/theme/colors';
-import { SupabaseConfigurationError } from '@/utils/supabase';
 
 type Props = {
   error: Error;
@@ -9,9 +8,25 @@ type Props = {
 };
 
 export function ConfigurationErrorFallback({ error, resetError }: Props) {
-  const isConfigError = error instanceof SupabaseConfigurationError;
-  const missingKeys = isConfigError ? error.missingKeys : [];
-  const instructions = isConfigError ? error.instructions : null;
+  // Check if this is a Supabase configuration error
+  const isConfigError = error.message?.includes('SUPABASE') || error.message?.includes('Supabase');
+  const missingKeys: string[] = [];
+  
+  // Try to parse missing keys from error message
+  if (isConfigError && error.message) {
+    if (error.message.includes('EXPO_PUBLIC_SUPABASE_URL')) {
+      missingKeys.push('EXPO_PUBLIC_SUPABASE_URL');
+    }
+    if (error.message.includes('EXPO_PUBLIC_SUPABASE_API_KEY')) {
+      missingKeys.push('EXPO_PUBLIC_SUPABASE_API_KEY');
+    }
+  }
+  
+  const instructions = isConfigError ? 
+    '1. Copy .env.example to .env in the project root.\n' +
+    '2. Paste the Supabase Project URL into EXPO_PUBLIC_SUPABASE_URL.\n' +
+    '3. Paste the Supabase anon public API key into EXPO_PUBLIC_SUPABASE_API_KEY.\n' +
+    '4. Restart the Expo development server.' : null;
 
   return (
     <View style={styles.container}>
@@ -26,7 +41,7 @@ export function ConfigurationErrorFallback({ error, resetError }: Props) {
         {missingKeys.length > 0 && (
           <View style={styles.list}>
             <Text style={styles.listTitle}>Missing variables:</Text>
-            {missingKeys.map((variable) => (
+            {missingKeys.map((variable: string) => (
               <Text key={variable} style={styles.listItem}>
                 • {variable}
               </Text>
@@ -37,7 +52,7 @@ export function ConfigurationErrorFallback({ error, resetError }: Props) {
         {instructions && (
           <View style={styles.instructions}>
             <Text style={styles.instructionsTitle}>How to fix it locally:</Text>
-            {instructions.split('\n').map((line) => (
+            {instructions.split('\n').map((line: string) => (
               <Text key={line} style={styles.instructionsItem}>
                 {line}
               </Text>
