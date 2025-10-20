@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { supabase } from '@/utils/supabase';
+import { supabase, assertSupabaseConfigured } from '@/utils/supabase';
 import { View, ActivityIndicator } from 'react-native';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ConfigurationErrorFallback } from '@/components/ConfigurationErrorFallback';
 
 export default function RootLayout() {
+  assertSupabaseConfigured();
   const [authed, setAuthed] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary fallback={ConfigurationErrorFallback}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }}>
