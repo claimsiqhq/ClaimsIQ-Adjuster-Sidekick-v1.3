@@ -17,7 +17,7 @@ function withLiDAR(config) {
     Object.keys(buildSettings).forEach(key => {
       if (typeof buildSettings[key] === 'object' && buildSettings[key].buildSettings) {
         buildSettings[key].buildSettings.SWIFT_OBJC_BRIDGING_HEADER = 
-          'ClaimsiQSidekick/LiDARScanner-Bridging-Header.h';
+          '$(SRCROOT)/LiDARScanner-Bridging-Header.h';
         buildSettings[key].buildSettings.IPHONEOS_DEPLOYMENT_TARGET = '15.0';
       }
     });
@@ -30,12 +30,8 @@ function withLiDAR(config) {
     config.modResults.NSCameraUsageDescription = 
       'Used to capture photos and perform LiDAR 3D scanning for claims documentation.';
     
-    if (!config.modResults.UIRequiredDeviceCapabilities) {
-      config.modResults.UIRequiredDeviceCapabilities = [];
-    }
-    if (!config.modResults.UIRequiredDeviceCapabilities.includes('arkit')) {
-      config.modResults.UIRequiredDeviceCapabilities.push('arkit');
-    }
+    // Make ARKit optional rather than required to support all iPhones
+    // Remove the UIRequiredDeviceCapabilities for ARKit to prevent crashes on non-LiDAR devices
     
     return config;
   });
