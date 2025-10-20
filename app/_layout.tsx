@@ -15,14 +15,25 @@ export default function RootLayout() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      setAuthed(!!data.session);
-      setReady(true);
-      SplashScreen.hideAsync();
+      try {
+        const { data } = await supabase.auth.getSession();
+        setAuthed(!!data.session);
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setAuthed(false); // Default to not authenticated on error
+      } finally {
+        setReady(true);
+        SplashScreen.hideAsync();
+      }
     })();
+    
     const unsub = onAuthStateChange(async () => {
-      const { data } = await supabase.auth.getSession();
-      setAuthed(!!data.session);
+      try {
+        const { data } = await supabase.auth.getSession();
+        setAuthed(!!data.session);
+      } catch (error) {
+        console.error('Auth state change error:', error);
+      }
     });
     return unsub;
   }, []);
@@ -55,6 +66,10 @@ export default function RootLayout() {
           <Stack.Screen name="auth" options={{ headerShown: false }} />
           <Stack.Screen name="admin" options={{ headerShown: false }} />
           <Stack.Screen name="photo" options={{ headerShown: false }} />
+          <Stack.Screen name="claim" options={{ headerShown: false }} />
+          <Stack.Screen name="document" options={{ headerShown: false }} />
+          <Stack.Screen name="report" options={{ headerShown: false }} />
+          <Stack.Screen name="lidar" options={{ headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </ErrorBoundary>
