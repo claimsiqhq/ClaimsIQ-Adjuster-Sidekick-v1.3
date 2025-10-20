@@ -66,12 +66,21 @@ ClaimsiQ Sidekick streamlines the insurance claims inspection process by enablin
 npm install
 ```
 
-2. Set up environment variables in `.env`:
-```
-EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-EXPO_PUBLIC_SUPABASE_API_KEY=your_supabase_anon_key
-EXPO_PUBLIC_WEATHER_API_KEY=your_weatherapi_com_api_key
-```
+2. Configure the required environment variables:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env` and paste the credentials from your Supabase project (Dashboard → Project Settings → API):
+
+   ```
+   EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+   EXPO_PUBLIC_SUPABASE_API_KEY=your_supabase_anon_key
+   EXPO_PUBLIC_WEATHER_API_KEY=your_weatherapi_com_api_key
+   ```
+
+   > ℹ️ If these variables are missing the app now displays a friendly configuration screen instead of crashing.
 
 3. Start the development server:
 ```bash
@@ -93,6 +102,16 @@ npx eas build --platform ios --profile production
 # Submit to TestFlight
 npx eas submit --platform ios
 ```
+
+### Refreshing native modules for development devices
+
+Some tabs (Map, Capture, Claims, Today) rely on native packages such as `react-native-maps`, `expo-document-picker`, and the custom LiDAR scanner. Whenever those dependencies change you must produce a fresh native build before testing on a physical device:
+
+```bash
+eas build --platform ios --profile preview
+```
+
+Install the resulting `.ipa` on your device (the EAS CLI will display a download link or QR code). Running an outdated build will crash as soon as the JavaScript bundle attempts to load a module that is missing from the native binary.
 
 ## Database Setup
 
@@ -200,6 +219,16 @@ rm -rf node_modules package-lock.json
 npm install
 npx expo start -c
 ```
+
+### The app shows a configuration error screen
+
+The Supabase client cannot start because the required environment variables are missing. Follow the on-screen instructions or run:
+
+```bash
+cp .env.example .env
+```
+
+Then paste `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_API_KEY` from the Supabase dashboard and restart Expo.
 
 ### Expo Go Connection Issues
 

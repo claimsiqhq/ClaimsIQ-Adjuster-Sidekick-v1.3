@@ -6,6 +6,8 @@ import Section from "@/components/Section";
 import { colors } from "@/theme/colors";
 import { supabase } from "@/utils/supabase";
 import { getSession } from "@/services/auth";
+import { getCurrentLocation } from "@/services/location";
+import { getWeather, Weather } from "@/services/weather";
 
 interface DashboardStats {
   totalClaims: number;
@@ -24,6 +26,7 @@ export default function HomeScreen() {
   });
   const [userName, setUserName] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [weather, setWeather] = useState<Weather | null>(null);
 
   useEffect(() => {
     loadDashboard();
@@ -75,6 +78,16 @@ export default function HomeScreen() {
         photosTotal: photosCount || 0,
         claimsInProgress: inProgressCount || 0,
       });
+
+      // Load current weather
+      try {
+        const location = await getCurrentLocation();
+        const currentWeather = await getWeather(location.latitude, location.longitude);
+        setWeather(currentWeather);
+      } catch (error) {
+        console.log('Weather unavailable:', error);
+        setWeather(null);
+      }
     } catch (error) {
       console.error('Error loading dashboard:', error);
     } finally {
@@ -167,6 +180,18 @@ export default function HomeScreen() {
           </View>
         </Pressable>
       </Section>
+
+      {weather && (
+        <Section title="Current Weather">
+          <View style={styles.weatherCard}>
+            <Text style={styles.weatherTemp}>{Math.round(weather.temperature)}°F</Text>
+            <Text style={styles.weatherCondition}>{weather.condition}</Text>
+            <Text style={styles.weatherDetails}>
+              Wind: {Math.round(weather.windSpeed)} mph • Humidity: {weather.humidity}%
+            </Text>
+          </View>
+        </Section>
+      )}
 
       <Section title="About Claims iQ Sidekick">
         <Text style={styles.aboutText}>
@@ -271,5 +296,25 @@ const styles = StyleSheet.create({
     color: '#2B2F36',
     lineHeight: 20,
     paddingHorizontal: 16,
+  },
+  weatherCard: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  weatherTemp: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  weatherCondition: {
+    fontSize: 18,
+    color: colors.core,
+    marginTop: 8,
+    textTransform: 'capitalize',
+  },
+  weatherDetails: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginTop: 4,
   },
 });
