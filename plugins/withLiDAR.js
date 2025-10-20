@@ -17,7 +17,7 @@ function withLiDAR(config) {
     Object.keys(buildSettings).forEach(key => {
       if (typeof buildSettings[key] === 'object' && buildSettings[key].buildSettings) {
         buildSettings[key].buildSettings.SWIFT_OBJC_BRIDGING_HEADER = 
-          'ClaimsiQSidekick/LiDARScanner-Bridging-Header.h';
+          '$(SRCROOT)/LiDARScanner-Bridging-Header.h';
         buildSettings[key].buildSettings.IPHONEOS_DEPLOYMENT_TARGET = '15.0';
       }
     });
