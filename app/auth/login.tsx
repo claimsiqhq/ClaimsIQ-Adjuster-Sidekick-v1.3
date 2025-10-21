@@ -21,7 +21,6 @@ export default function LoginScreen() {
         setRemember(dev.remember);
       } catch (error) {
         console.log('Error loading dev creds:', error);
-        // Continue without pre-filled credentials
       }
     })();
   }, []);
@@ -43,7 +42,7 @@ export default function LoginScreen() {
     try {
       await signIn(email.trim(), password);
       await setDevCreds(email.trim(), password, remember);
-      router.replace('/today');
+      router.replace('/(tabs)');
     } catch (e: any) {
       Alert.alert('Login failed', String(e?.message ?? e));
     } finally {
@@ -73,23 +72,37 @@ export default function LoginScreen() {
           style={styles.input}
         />
         <Text style={styles.label}>Password</Text>
-        <TextInput secureTextEntry value={password} onChangeText={setPassword} placeholder="••••••••" style={styles.input} />
+        <TextInput 
+          secureTextEntry 
+          value={password} 
+          onChangeText={setPassword} 
+          placeholder="••••••••" 
+          style={styles.input} 
+        />
 
         <View style={styles.row}>
-          <Text style={styles.small}>Remember dev creds</Text>
+          <Text style={styles.small}>Remember credentials</Text>
           <Switch value={remember} onValueChange={setRemember} />
         </View>
 
-        <Pressable style={[styles.btn, styles.primary, busy && styles.dim]} disabled={busy} onPress={doLogin}>
+        <Pressable 
+          style={[styles.btn, styles.primary, busy && styles.dim]} 
+          disabled={busy} 
+          onPress={doLogin}
+        >
           <Text style={styles.btnTxt}>Sign In</Text>
-</Pressable>
+        </Pressable>
 
-        <Pressable style={[styles.btn, styles.secondary, busy && styles.dim]} disabled={busy} onPress={ensureAdmin}>
+        <Pressable 
+          style={[styles.btn, styles.secondary, busy && styles.dim]} 
+          disabled={busy} 
+          onPress={ensureAdmin}
+        >
           <Text style={styles.btnTxtDark}>Create/Ensure Admin</Text>
         </Pressable>
       </View>
 
-      <Text style={styles.hint}>Configure dev credentials in .env file</Text>
+      <Text style={styles.hint}>Login: john@claimsiq.ai / admin123</Text>
     </View>
   );
 }
