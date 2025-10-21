@@ -3,12 +3,18 @@ import { createClient } from '@supabase/supabase-js';
 import 'react-native-get-random-values'; // Required for crypto operations
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Expo bundles env vars with EXPO_PUBLIC_ prefix
-// Fallback to hardcoded values for EAS builds
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://lyppkkpawalcchbgbkxg.supabase.co';
-const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_API_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5cHBra3Bhd2FsY2NoYmdia3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNzcxMjEsImV4cCI6MjA3NTk1MzEyMX0.g27leGoCVdfAQq0LhoXnI2N4nwu5LK3mPH0oE_MEzDs';
+// Get environment variables - these come from Expo Dashboard or eas.json
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_API_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    'Missing Supabase environment variables. Please ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_API_KEY are set in your Expo Dashboard or eas.json'
+  );
+}
 
 // Single client with session persistence enabled
+// Works with both new publishable keys (sb_publishable_) and legacy JWT keys
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     storage: AsyncStorage,
