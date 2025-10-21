@@ -56,7 +56,10 @@ export default function SettingsScreen() {
       </Section>
       <Section title="Admin">
         <Pressable style={styles.link} onPress={() => router.push('/admin/prompts')}>
-          <Text style={styles.linkTxt}>Open Prompt Admin</Text>
+          <Text style={styles.linkTxt}>AI Prompts</Text>
+        </Pressable>
+        <Pressable style={[styles.link, { backgroundColor: colors.light, marginTop: 8 }]} onPress={() => router.push('/admin/credentials')}>
+          <Text style={[styles.linkTxt, { color: colors.primary }]}>View Credentials</Text>
         </Pressable>
       </Section>
       <Section title="Session">

@@ -6,6 +6,10 @@ channel = "stable-24_05"
 packages = ["freetype", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "tcl", "tk", "zlib"]
 
 [[ports]]
+localPort = 3000
+externalPort = 3002
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 
@@ -16,6 +20,10 @@ externalPort = 80
 [[ports]]
 localPort = 8082
 externalPort = 3000
+
+[[ports]]
+localPort = 39743
+externalPort = 3003
 
 [[ports]]
 localPort = 45531
@@ -63,15 +71,16 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Expo iOS Development"
+args = "Expo Dev Server"
 
 [[workflows.workflow]]
-name = "Expo iOS Development"
+name = "Expo Dev Server"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx expo start"
+args = "npx expo start --dev-client --tunnel --port 3000 --non-interactive"
+waitForPort = 3000
 
 [workflows.workflow.metadata]
 outputType = "console"
