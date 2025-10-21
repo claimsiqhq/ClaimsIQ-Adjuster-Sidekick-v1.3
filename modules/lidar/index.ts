@@ -55,5 +55,15 @@ class LiDARScannerModule {
 }
 
 export const lidarScanner = new LiDARScannerModule();
-export const LiDARScannerView = requireNativeComponent<any>('LiDARScannerView');
+
+// Only require native component on iOS where it exists
+export const LiDARScannerView = (() => {
+  try {
+    return requireNativeComponent<any>('LiDARScannerView');
+  } catch (error) {
+    // Return a dummy component if native module doesn't exist
+    console.warn('LiDARScannerView native component not available');
+    return null as any;
+  }
+})();
 
