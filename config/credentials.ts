@@ -4,7 +4,7 @@
 export const APP_CREDENTIALS = {
   supabase: {
     url: 'https://lyppkkpawalcchbgbkxg.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5cHBra3Bhd2FsY2NoYmdia3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNzcxMjEsImV4cCI6MjA3NTk1MzEyMX0.g27leGoCVdfAQq0LhoXnI2N4nwu5LK3mPH0oE_MEzDs',
+    anonKey: 'sb_publishable_xG1vNYVo-wpyHi4WzCdUGg_9XFL8Gxr',  // Your publishable key
   },
   defaultLogin: {
     email: 'john@claimsiq.ai',
