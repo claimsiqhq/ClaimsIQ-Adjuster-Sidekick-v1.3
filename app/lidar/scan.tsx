@@ -191,7 +191,15 @@ export default function LiDARScanScreen() {
       {/* AR View */}
       <View style={styles.arViewContainer}>
         {scanning ? (
-          <LiDARScannerView style={styles.arView} />
+          LiDARScannerView ? (
+            <LiDARScannerView style={styles.arView} />
+          ) : (
+            <View style={styles.arView}>
+              <Text style={{ color: colors.white, textAlign: 'center', marginTop: 100 }}>
+                LiDAR native module not available
+              </Text>
+            </View>
+          )
         ) : (
           <View style={styles.arViewPlaceholder}>
             <Text style={styles.placeholderText}>Tap Start to begin scanning</Text>
