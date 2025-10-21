@@ -11,6 +11,9 @@
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		C2409F7DE24A41C792616521 /* ARKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5A7E4C0158B2492BAFF3C383 /* ARKit.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		596049FDFBA147A8955EB846 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD14F11FF114404E8A094BA7 /* RealityKit.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		B669DAD4C35F4A7EA31F9EAB /* SceneKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F4164BE7769486C8E09BCBE /* SceneKit.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,6 +25,9 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ClaimsiQSidekick/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* ClaimsiQSidekick-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "ClaimsiQSidekick-Bridging-Header.h"; path = "ClaimsiQSidekick/ClaimsiQSidekick-Bridging-Header.h"; sourceTree = "<group>"; };
+		5A7E4C0158B2492BAFF3C383 /* ARKit.framework */ = {isa = PBXFileReference; name = "ARKit.framework"; path = "System/Library/Frameworks/ARKit.framework"; sourceTree = SDKROOT; fileEncoding = undefined; lastKnownFileType = wrapper.framework; explicitFileType = undefined; includeInIndex = 0; };
+		FD14F11FF114404E8A094BA7 /* RealityKit.framework */ = {isa = PBXFileReference; name = "RealityKit.framework"; path = "System/Library/Frameworks/RealityKit.framework"; sourceTree = SDKROOT; fileEncoding = undefined; lastKnownFileType = wrapper.framework; explicitFileType = undefined; includeInIndex = 0; };
+		4F4164BE7769486C8E09BCBE /* SceneKit.framework */ = {isa = PBXFileReference; name = "SceneKit.framework"; path = "System/Library/Frameworks/SceneKit.framework"; sourceTree = SDKROOT; fileEncoding = undefined; lastKnownFileType = wrapper.framework; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -29,6 +35,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C2409F7DE24A41C792616521 /* ARKit.framework in Frameworks */,
+				596049FDFBA147A8955EB846 /* RealityKit.framework in Frameworks */,
+				B669DAD4C35F4A7EA31F9EAB /* SceneKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -52,6 +61,9 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
+				5A7E4C0158B2492BAFF3C383 /* ARKit.framework */,
+				FD14F11FF114404E8A094BA7 /* RealityKit.framework */,
+				4F4164BE7769486C8E09BCBE /* SceneKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -248,7 +260,7 @@
 					"FB_SONARKIT_ENABLED=1",
 				);
 				INFOPLIST_FILE = ClaimsiQSidekick/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -259,12 +271,14 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.name.ClaimsiQSidekick;
-				PRODUCT_NAME = ClaimsiQSidekick;
-				SWIFT_OBJC_BRIDGING_HEADER = "ClaimsiQSidekick/ClaimsiQSidekick-Bridging-Header.h";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.claimsiq.claimsiqadjustersidekickv13";
+				PRODUCT_NAME = "ClaimsiQSidekick";
+				SWIFT_OBJC_BRIDGING_HEADER = $(SRCROOT)/LiDARScanner-Bridging-Header.h;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_ENTITLEMENTS = ClaimsiQSidekick/ClaimsiQSidekick.entitlements;
 			};
 			name = Debug;
 		};
@@ -275,7 +289,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = ClaimsiQSidekick/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -286,11 +300,13 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.name.ClaimsiQSidekick;
-				PRODUCT_NAME = ClaimsiQSidekick;
-				SWIFT_OBJC_BRIDGING_HEADER = "ClaimsiQSidekick/ClaimsiQSidekick-Bridging-Header.h";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.claimsiq.claimsiqadjustersidekickv13";
+				PRODUCT_NAME = "ClaimsiQSidekick";
+				SWIFT_OBJC_BRIDGING_HEADER = $(SRCROOT)/LiDARScanner-Bridging-Header.h;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_ENTITLEMENTS = ClaimsiQSidekick/ClaimsiQSidekick.entitlements;
 			};
 			name = Release;
 		};
@@ -341,7 +357,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -350,6 +366,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = $(SRCROOT)/LiDARScanner-Bridging-Header.h;
 			};
 			name = Debug;
 		};
@@ -393,7 +410,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -402,6 +419,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				VALIDATE_PRODUCT = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = $(SRCROOT)/LiDARScanner-Bridging-Header.h;
 			};
 			name = Release;
 		};

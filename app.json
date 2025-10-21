@@ -42,6 +42,9 @@
       "EXPO_PUBLIC_SUPABASE_URL": "https://lyppkkpawalcchbgbkxg.supabase.co",
       "EXPO_PUBLIC_SUPABASE_API_KEY": "sb_publishable_xG1vNYVo-wpyHi4WzCdUGg_9XFL8Gxr"
     },
-    "owner": "claimsiq"
+    "owner": "claimsiq",
+    "android": {
+      "package": "com.claimsiq.claimsiqadjustersidekickv13"
+    }
   }
 }
