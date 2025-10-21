@@ -83,8 +83,8 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx expo start --dev-client --tunnel --port 3000 --non-interactive"
-waitForPort = 3000
+args = "CI=1 npx expo start --dev-client --tunnel --port 3001"
+waitForPort = 3001
 
 [workflows.workflow.metadata]
 outputType = "console"
