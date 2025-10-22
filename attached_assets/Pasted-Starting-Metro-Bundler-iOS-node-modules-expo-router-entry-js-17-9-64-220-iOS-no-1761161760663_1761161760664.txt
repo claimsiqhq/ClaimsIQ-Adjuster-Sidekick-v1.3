@@ -1,0 +1,36 @@
+Starting Metro Bundler
+iOS node_modules/expo-router/entry.js ▓▓░░░░░░░░░░░░░░ 17.9% ( 64/220)
+iOS node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 87.4% ( 978/1046)
+iOS Bundling failed 5400ms node_modules/expo-router/entry.js (1237 modules)
+Unable to resolve module @/config/supabase from /Users/expo/workingdir/build/app/(tabs)/index.tsx: @/config/supabase could not be found within the project or in these directories:
+  node_modules
+[0m [90m  6 |[39m [36mimport[39m [33mAsyncStorage[39m [36mfrom[39m [32m'@react-native-async-storage/async-storage'[39m[33m;[39m
+ [90m  7 |[39m [36mimport[39m { useRouter } [36mfrom[39m [32m'expo-router'[39m[33m;[39m
+[31m[1m>[22m[39m[90m  8 |[39m [36mimport[39m { supabase } [36mfrom[39m [32m'@/config/supabase'[39m[33m;[39m
+ [90m    |[39m                           [31m[1m^[22m[39m
+ [90m  9 |[39m [36mimport[39m { getSession } [36mfrom[39m [32m'@/services/auth'[39m[33m;[39m
+ [90m 10 |[39m [36mimport[39m { getCurrentLocation[33m,[39m getWeather[33m,[39m type [33mWeather[39m } [36mfrom[39m [32m'@/services/weather'[39m[33m;[39m
+ [90m 11 |[39m [36mimport[39m [33mHeader[39m [36mfrom[39m [32m'@/components/Header'[39m[33m;[39m[0m
+
+Import stack:
+
+ app/(tabs)/index.tsx
+ | import "@/config/supabase"
+
+ app (require.context)
+Error: Unable to resolve module @/config/supabase from /Users/expo/workingdir/build/app/(tabs)/index.tsx: @/config/supabase could not be found within the project or in these directories:
+  node_modules
+[0m [90m  6 |[39m [36mimport[39m [33mAsyncStorage[39m [36mfrom[39m [32m'@react-native-async-storage/async-storage'[39m[33m;[39m
+ [90m  7 |[39m [36mimport[39m { useRouter } [36mfrom[39m [32m'expo-router'[39m[33m;[39m
+[31m[1m>[22m[39m[90m  8 |[39m [36mimport[39m { supabase } [36mfrom[39m [32m'@/config/supabase'[39m[33m;[39m
+ [90m    |[39m                           [31m[1m^[22m[39m
+ [90m  9 |[39m [36mimport[39m { getSession } [36mfrom[39m [32m'@/services/auth'[39m[33m;[39m
+ [90m 10 |[39m [36mimport[39m { getCurrentLocation[33m,[39m getWeather[33m,[39m type [33mWeather[39m } [36mfrom[39m [32m'@/services/weather'[39m[33m;[39m
+ [90m 11 |[39m [36mimport[39m [33mHeader[39m [36mfrom[39m [32m'@/components/Header'[39m[33m;[39m[0m
+
+Import stack:
+
+ app/(tabs)/index.tsx
+ | import "@/config/supabase"
+
+ app (require.context)
