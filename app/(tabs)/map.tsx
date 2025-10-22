@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+// import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';  // Temporarily disabled
 import Header from "@/components/Header";
 import Section from "@/components/Section";
 import { colors } from "@/theme/colors";
@@ -140,53 +140,16 @@ export default function MapScreen() {
       <Header title="Map & Route" subtitle="Claims locations and routing" />
       
       <View style={styles.mapContainer}>
-        <MapView
-          style={styles.map}
-          provider={PROVIDER_GOOGLE}
-          initialRegion={initialRegion}
-          showsUserLocation
-          showsMyLocationButton
-        >
-          {/* Current location marker */}
-          {currentLocation && (
-            <Marker
-              coordinate={currentLocation}
-              title="Your Location"
-              pinColor={colors.primary}
-            />
-          )}
-
-          {/* Claim markers */}
-          {claims.map((claim, index) =>
-            claim.coordinates ? (
-              <Marker
-                key={claim.id}
-                coordinate={claim.coordinates}
-                title={`Claim #${claim.claim_number || 'Unnamed'}`}
-                description={claim.loss_location || ''}
-                pinColor={claim.status === 'in_progress' ? '#F59E0B' : '#10B981'}
-                onCalloutPress={() => router.push(`/claim/${claim.id}`)}
-              >
-                {route && (
-                  <View style={styles.markerBadge}>
-                    <Text style={styles.markerText}>{index + 1}</Text>
-                  </View>
-                )}
-              </Marker>
-            ) : null
-          )}
-
-          {/* Route polyline */}
-          {route && route.stops.length > 1 && (
-            <Polyline
-              coordinates={route.stops
-                .map(s => s.coordinates)
-                .filter((c): c is Coordinates => c !== null)}
-              strokeColor={colors.primary}
-              strokeWidth={3}
-            />
-          )}
-        </MapView>
+        <View style={[styles.map, { backgroundColor: colors.light, alignItems: 'center', justifyContent: 'center' }]}>
+          <Text style={{ fontSize: 48 }}>🗺️</Text>
+          <Text style={{ color: colors.primary, fontWeight: '700', marginTop: 12 }}>Map View</Text>
+          <Text style={{ color: colors.textLight, marginTop: 4 }}>
+            {claims.length} claim locations
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8, textAlign: 'center', paddingHorizontal: 20 }}>
+            MapView temporarily disabled to fix build errors
+          </Text>
+        </View>
       </View>
 
       <ScrollView style={styles.bottomSheet}>
