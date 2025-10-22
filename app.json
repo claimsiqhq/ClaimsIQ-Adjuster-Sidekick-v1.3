@@ -15,6 +15,7 @@
         "googleMapsApiKey": "$EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"
       },
       "infoPlist": {
+        "CFBundleDisplayName": "ClaimsIQ",
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Used to capture photos for claims documentation and AI annotations.",
         "NSMicrophoneUsageDescription": "Used for voice notes and live assistant interactions.",
