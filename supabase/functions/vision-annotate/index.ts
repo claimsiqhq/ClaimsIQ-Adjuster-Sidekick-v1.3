@@ -1,8 +1,6 @@
 // supabase/functions/vision-annotate/index.ts
-// DB-driven prompts + settings → OpenAI Vision → writes annotation_json/anno_count/qc/status
-// Secrets (Supabase → Settings → Functions → Secrets):
-//   OPENAI_API_KEY
-// Uses SUPABASE_URL / SUPABASE_ANON_KEY provided by the Edge runtime.
+// Annotates photos with damage detection using OpenAI Vision
+// Secrets required: OPENAI_API_KEY
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -67,23 +65,16 @@ Deno.serve(async (req) => {
     const IMAGE_URL = pub?.publicUrl;
     if (!IMAGE_URL) throw new Error("failed to get public URL");
 
-    // 2) Active prompts + settings
-    const { data: pSys } = await sb
+    // 2) Get active prompt (SINGLE PROMPT)
+    const { data: promptData } = await sb
       .from("app_prompts")
       .select("template")
-      .eq("key", "vision_annotate_system")
+      .eq("key", "vision_annotate")
       .eq("is_active", true)
       .limit(1)
       .maybeSingle();
 
-    const { data: pUser } = await sb
-      .from("app_prompts")
-      .select("template")
-      .eq("key", "vision_annotate_user")
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
-
+    // Get vision settings
     const { data: sRow } = await sb
       .from("app_settings")
       .select("value")
@@ -100,30 +91,57 @@ Deno.serve(async (req) => {
 
     const SCENE_TAGS = (payload.sceneTags ?? []).join(", ") || "none";
 
-    const systemTpl =
-      pSys?.template ??
-      `You are a senior property damage assessor. Return STRICT JSON:
-{"detections":[{"id":"...","label":"...","friendly":"...","severity":"minor|moderate|severe|uncertain","confidence":0.0,"evidence":"...","tags":["..."],"shape":{"type":"bbox","box":{"x":0..1,"y":0..1,"w":0..1,"h":0..1}}}],"photo_qc":{},"model":{"name":"<string>","ts":"<iso>"}}. JSON only.`;
+    // Default single prompt combining instructions and task
+    const defaultPrompt = `You are a senior property damage assessor analyzing an insurance claim photo.
 
-    const userTpl =
-      pUser?.template ??
-      `Task: Detect damage/issues/safety concerns. Scene tags: {{SCENE_TAGS}}. Image: {{IMAGE_URL}}. JSON only.`;
+Scene context: {{SCENE_TAGS}}
 
-    const sysText = render(systemTpl, { IMAGE_URL, SCENE_TAGS });
-    const usrText = render(userTpl, { IMAGE_URL, SCENE_TAGS });
+Analyze this image for all damage, safety concerns, and notable issues. Return STRICT JSON format:
 
-    // 3) OpenAI Chat Completions API (correct endpoint)
+{
+  "detections": [
+    {
+      "id": "unique_identifier",
+      "label": "damage_type", 
+      "friendly": "user-friendly description",
+      "severity": "minor|moderate|severe|uncertain",
+      "confidence": 0.0-1.0,
+      "evidence": "visual evidence supporting this detection",
+      "tags": ["relevant", "descriptive", "tags"],
+      "shape": {
+        "type": "bbox",
+        "box": {"x": 0.0-1.0, "y": 0.0-1.0, "w": 0.0-1.0, "h": 0.0-1.0}
+      }
+    }
+  ],
+  "photo_qc": {
+    "blur_score": 0.0-1.0,
+    "glare": true/false,
+    "underexposed": true/false,
+    "distance_hint_m": estimated_distance
+  },
+  "model": {
+    "name": "model_name",
+    "ts": "ISO_timestamp"
+  }
+}
+
+Be thorough - identify ALL visible damage and issues. Return JSON ONLY, no explanatory text.`;
+
+    const promptTemplate = promptData?.template ?? defaultPrompt;
+    const annotationPrompt = render(promptTemplate, { IMAGE_URL, SCENE_TAGS });
+
+    // 3) Call OpenAI Vision API with SINGLE prompt
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: settings.model ?? "gpt-4o-mini",
         messages: [
-          { role: "system", content: sysText },
           {
             role: "user",
             content: [
-              { type: "text", text: usrText },
+              { type: "text", text: annotationPrompt },
               { type: "image_url", image_url: { url: IMAGE_URL } },
             ],
           },
@@ -131,6 +149,7 @@ Deno.serve(async (req) => {
         response_format: { type: "json_object" },
       }),
     });
+    
     if (!res.ok) throw new Error(await res.text());
     const out = await res.json();
     const raw = out?.choices?.[0]?.message?.content ?? "";

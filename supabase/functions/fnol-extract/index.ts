@@ -115,46 +115,59 @@ Deno.serve(async (req) => {
       imageUrls = [DOCUMENT_URL];
     }
     
-    // 4) Get active FNOL prompts
-    const { data: pSys } = await sb
+    // 4) Get active FNOL extraction prompt (SINGLE PROMPT)
+    const { data: promptData } = await sb
       .from("app_prompts")
       .select("template")
-      .eq("key", "fnol_extract_system")
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
-      
-    const { data: pUser } = await sb
-      .from("app_prompts")
-      .select("template")
-      .eq("key", "fnol_extract_user")
+      .eq("key", "fnol_extract")
       .eq("is_active", true)
       .limit(1)
       .maybeSingle();
     
-    const systemPrompt = pSys?.template || `You are an FNOL document extractor. Extract ALL information from this FNOL document.
-Return a JSON object with this structure:
+    // Default prompt if none exists in database
+    const defaultPrompt = `You are an expert at extracting insurance claim data from FNOL documents.
+
+Extract ALL information from the provided document images and return a JSON object with this EXACT structure:
 {
-  "policyDetails": { "claimNumber", "policyNumber" },
+  "policyDetails": {
+    "claimNumber": "claim number",
+    "policyNumber": "policy number"
+  },
   "carrierName": "insurance company name",
-  "policyHolder": { "insuredName" },
-  "adjustor": { "adjustorAssigned", "adjustorEmail", "adjustorPhoneNumber" },
-  "lossDetails": { "lossLocation", "lossDescription", "causeOfLoss", "dateOfLoss", "timeOfLoss", "estimatedLoss", "claimType" },
-  "reporterInfo": { "reportersName", "callerCellPhone" }
-}`;
+  "policyHolder": {
+    "insuredName": "insured person's name"
+  },
+  "adjustor": {
+    "adjustorAssigned": "adjuster's name",
+    "adjustorEmail": "adjuster's email",
+    "adjustorPhoneNumber": "adjuster's phone"
+  },
+  "lossDetails": {
+    "lossLocation": "full address of loss",
+    "lossDescription": "detailed description of what happened",
+    "causeOfLoss": "primary cause (e.g., Wind, Water, Fire)",
+    "dateOfLoss": "YYYY-MM-DD format",
+    "timeOfLoss": "HH:MM format if available",
+    "estimatedLoss": "dollar amount if available",
+    "claimType": "type of claim"
+  },
+  "reporterInfo": {
+    "reportersName": "person who reported",
+    "callerCellPhone": "reporter's phone"
+  }
+}
+
+Be thorough - extract every piece of information visible in the document. Use null for missing fields.`;
     
-    const userPrompt = pUser?.template || "Extract all fields from the document.";
+    const extractionPrompt = promptData?.template || defaultPrompt;
     
-    const sysText = render(systemPrompt, { DOCUMENT_URL });
-    const usrText = render(userPrompt, { DOCUMENT_URL });
-    
-    // 5) Prepare image content for OpenAI
+    // Prepare image content for OpenAI
     const imageContent = imageUrls.map(url => ({
       type: "image_url",
       image_url: { url }
     }));
     
-    // 6) Call OpenAI Vision API
+    // 5) Call OpenAI Vision API with SINGLE prompt
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -164,11 +177,10 @@ Return a JSON object with this structure:
       body: JSON.stringify({
         model: "gpt-4o",
         messages: [
-          { role: "system", content: sysText },
           {
             role: "user",
             content: [
-              { type: "text", text: usrText },
+              { type: "text", text: extractionPrompt },
               ...imageContent
             ]
           }
@@ -188,7 +200,7 @@ Return a JSON object with this structure:
     
     if (!raw) throw new Error("Empty response from OpenAI");
     
-    // 7) Parse JSON
+    // 6) Parse JSON
     let extracted;
     try {
       extracted = JSON.parse(raw);
@@ -196,7 +208,7 @@ Return a JSON object with this structure:
       throw new Error(`Failed to parse JSON: ${e.message}`);
     }
     
-    // 8) Update document with extracted data
+    // 7) Update document with extracted data
     await sb.from("documents").update({
       extracted_data: extracted,
       extraction_status: "completed",
@@ -204,7 +216,7 @@ Return a JSON object with this structure:
       extraction_confidence: 0.95
     }).eq("id", payload.documentId);
     
-    // 9) Update associated claim with key fields
+    // 8) Update associated claim with key fields
     if (doc.claim_id || payload.claimId) {
       const claimId = doc.claim_id || payload.claimId;
       const claimUpdate: any = {
@@ -249,58 +261,79 @@ Return a JSON object with this structure:
         claimUpdate.time_of_loss = extracted.lossDetails.timeOfLoss;
       }
       if (extracted.lossDetails?.estimatedLoss) {
-        const amount = parseFloat(extracted.lossDetails.estimatedLoss.replace(/[^0-9.]/g, ''));
-        if (!isNaN(amount)) {
-          claimUpdate.estimated_loss = amount;
-        }
-      }
-      if (extracted.lossDetails?.claimType) {
-        claimUpdate.loss_type = extracted.lossDetails.claimType;
-      }
-      if (extracted.reporterInfo?.reportersName) {
-        claimUpdate.reporter_name = extracted.reporterInfo.reportersName;
-      }
-      if (extracted.reporterInfo?.callerCellPhone) {
-        claimUpdate.reporter_phone = extracted.reporterInfo.callerCellPhone;
+        claimUpdate.estimated_loss = parseFloat(extracted.lossDetails.estimatedLoss.replace(/[^0-9.-]/g, '')) || null;
       }
       
       await sb.from("claims").update(claimUpdate).eq("id", claimId);
     }
     
-    return new Response(JSON.stringify({
-      ok: true,
-      extracted: extracted,
-      documentId: payload.documentId,
-      pagesProcessed: imageUrls.length
-    }), {
-      status: 200,
-      headers: {
-        ...CORS,
-        "Content-Type": "application/json"
+    // 9) Create workflow based on extracted data
+    const workflowItems = [];
+    
+    if (extracted.lossDetails?.causeOfLoss) {
+      const cause = extracted.lossDetails.causeOfLoss.toLowerCase();
+      
+      if (cause.includes("water") || cause.includes("flood")) {
+        workflowItems.push(
+          { title: "Document water source", completed: false },
+          { title: "Check for mold", completed: false },
+          { title: "Moisture readings", completed: false }
+        );
+      } else if (cause.includes("wind") || cause.includes("storm")) {
+        workflowItems.push(
+          { title: "Inspect roof damage", completed: false },
+          { title: "Check siding/windows", completed: false },
+          { title: "Document debris", completed: false }
+        );
+      } else if (cause.includes("fire")) {
+        workflowItems.push(
+          { title: "Document burn patterns", completed: false },
+          { title: "Check structural integrity", completed: false },
+          { title: "Inventory damaged items", completed: false }
+        );
       }
+    }
+    
+    if (workflowItems.length > 0 && (doc.claim_id || payload.claimId)) {
+      await sb.from("inspection_steps").insert(
+        workflowItems.map((item, idx) => ({
+          claim_id: doc.claim_id || payload.claimId,
+          step_order: idx + 1,
+          title: item.title,
+          description: `Generated from FNOL: ${item.title}`,
+          completed: false,
+          required: true
+        }))
+      );
+    }
+    
+    return new Response(JSON.stringify({
+      success: true,
+      documentId: payload.documentId,
+      claimId: doc.claim_id || payload.claimId,
+      extracted,
+      workflowGenerated: workflowItems.length > 0
+    }), {
+      headers: { ...CORS, "Content-Type": "application/json" }
     });
     
   } catch (error) {
-    console.error("FNOL extraction error:", error);
+    console.error("Error:", error.message);
     
-    // Update document with error status
-    if (payload?.documentId) {
-      const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Mark document as failed if we have documentId
+    if (payload?.documentId && sb) {
       await sb.from("documents").update({
-        extraction_status: "error",
+        extraction_status: "failed",
         extraction_error: error.message
       }).eq("id", payload.documentId);
     }
     
     return new Response(JSON.stringify({
-      ok: false,
+      success: false,
       error: error.message
     }), {
-      status: 500,
-      headers: {
-        ...CORS,
-        "Content-Type": "application/json"
-      }
+      status: 400,
+      headers: { ...CORS, "Content-Type": "application/json" }
     });
   }
 });
