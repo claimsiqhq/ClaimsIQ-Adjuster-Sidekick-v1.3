@@ -2,7 +2,7 @@ import 'react-native-get-random-values';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, FlatList, Image, Modal, ActivityIndicator, Alert, TextInput } from 'react-native';
 import * as CameraLib from 'expo-camera';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { colors } from '@/theme/colors';
 import Header from '@/components/Header';
 import { insertMediaRow, listMedia, uploadPhotoToStorage, MediaItem, batchAssignToClaim, getPublicUrl } from '@/services/media';
@@ -273,9 +273,14 @@ function CameraModal({
               const cam = cameraRef.current as any;
               const pic = await cam.takePictureAsync?.({ quality: 0.85, skipProcessing: true });
               if (!pic?.uri) throw new Error('No image captured');
-              const dest = FileSystem.cacheDirectory! + `photo_${Date.now()}.jpg`;
-              await FileSystem.copyAsync({ from: pic.uri, to: dest });
-              onCaptured(dest);
+              
+              // Use new File API instead of deprecated copyAsync
+              const destFileName = `photo_${Date.now()}.jpg`;
+              const sourceFile = new File(pic.uri);
+              const destFile = new File(Paths.cache, destFileName);
+              await sourceFile.copy(destFile);
+              
+              onCaptured(destFile.uri);
               onClose();
             } catch (e: any) { Alert.alert('Camera error', String(e?.message ?? e)); }
           }}>
