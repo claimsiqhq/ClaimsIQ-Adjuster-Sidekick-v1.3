@@ -1,6 +1,6 @@
 # Overview
 
-Claims iQ Sidekick is a native iOS insurance claims inspection application built with Expo (React Native) specifically for iPhone devices. The app enables field adjusters to capture photos, manage claims, and leverage AI-powered damage detection through OpenAI's Vision API. It features offline-first architecture with Supabase backend integration, supporting camera capture, AI annotation workflows, claims tracking, and administrative prompt management.
+Claims iQ Sidekick is a native iOS insurance claims inspection application built with Expo (React Native) specifically for iPhone devices. The app enables field adjusters to capture photos, manage claims, and leverage AI-powered damage detection through OpenAI's Vision API. It features offline-first architecture with Supabase backend integration, supporting camera capture, AI annotation workflows, claims tracking, PDF FNOL extraction with multi-page support, and administrative prompt management.
 
 # User Preferences
 
