@@ -1,5 +1,6 @@
 import { supabase } from '@/utils/supabase';
 import { invokeAnnotation } from '@/services/annotate';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export type MediaType = 'photo' | 'lidar_room';
 export type MediaStatus = 'pending' | 'uploading' | 'uploaded' | 'annotating' | 'done' | 'error';
@@ -61,11 +62,34 @@ export interface MediaFilters {
 }
 
 export async function uploadPhotoToStorage(localUri: string, path: string): Promise<string> {
-  const resp = await fetch(localUri);
-  const blob = await resp.blob();
-  const { error } = await supabase.storage.from('media').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
-  if (error) throw error;
-  return path;
+  try {
+    // Read the file as base64 for React Native compatibility
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    
+    // Convert base64 to blob for Supabase storage
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+    
+    const { error } = await supabase.storage
+      .from('media')
+      .upload(path, blob, { 
+        contentType: 'image/jpeg', 
+        upsert: false 
+      });
+      
+    if (error) throw error;
+    return path;
+  } catch (error: any) {
+    console.error('Upload error details:', error);
+    throw new Error(`Failed to upload photo: ${error?.message || error}`);
+  }
 }
 
 export async function insertMediaRow(row: Partial<MediaItem>): Promise<MediaItem> {
