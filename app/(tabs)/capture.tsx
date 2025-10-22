@@ -102,8 +102,8 @@ export default function CaptureScreen() {
       {mode === 'capture' ? (
         <View style={styles.grid}>
           <Pressable style={[styles.tile, styles.a]} onPress={onOpenCamera}>
-            <Text style={styles.tileH}>Photo</Text>
-            <Text style={styles.tileP}>Open camera, upload, annotate</Text>
+            <Text style={styles.tileH}>📸 Photo</Text>
+            <Text style={styles.tileP}>Capture damage photos for AI annotation</Text>
           </Pressable>
           <Pressable style={[styles.tile, styles.b]} onPress={() => {
             if (selected.size > 0) {
@@ -115,12 +115,8 @@ export default function CaptureScreen() {
               router.push('/lidar/scan');
             }
           }}>
-            <Text style={styles.tileH}>LiDAR</Text>
-            <Text style={styles.tileP}>3D Room Scan</Text>
-          </Pressable>
-          <Pressable style={[styles.tile, styles.c]} onPress={() => router.push('/document/upload')}>
-            <Text style={styles.tileH}>Document</Text>
-            <Text style={styles.tileP}>Upload PDF → FNOL</Text>
+            <Text style={styles.tileH}>🎯 LiDAR</Text>
+            <Text style={styles.tileP}>3D room scanning (experimental)</Text>
           </Pressable>
         </View>
       ) : (
