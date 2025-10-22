@@ -66,3 +66,6 @@ IMPLEMENTATION_COMPLETE.txt
 
 expo-env.d.ts
 # @end expo-cli
+
+# Supabase
+supabase/.temp
