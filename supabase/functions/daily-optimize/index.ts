@@ -128,37 +128,21 @@ Deno.serve(async (req) => {
         : null
     }));
 
-    // 4. Get prompts from database
-    const { data: systemPrompt } = await sb
+    // 4. Get daily optimization prompt (SINGLE PROMPT)
+    const { data: promptData } = await sb
       .from("app_prompts")
       .select("template")
-      .eq("key", "daily_optimize_system")
+      .eq("key", "daily_optimize")
       .eq("is_active", true)
       .limit(1)
       .maybeSingle();
 
-    const { data: userPrompt } = await sb
-      .from("app_prompts")
-      .select("template")
-      .eq("key", "daily_optimize_user")
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
+    // Default single prompt combining instructions and task
+    const defaultPrompt = `You are an AI assistant optimizing daily schedules for insurance adjusters.
 
-    const sysText = systemPrompt?.template || `You are an AI assistant that optimizes daily schedules for insurance adjusters. 
-    Analyze claims data, weather conditions, and travel distances to create an efficient daily plan.
-    Consider SLA deadlines, priority scores, and safety conditions.
-    Return a JSON response with:
-    - daily_brief: Executive summary of the day
-    - optimized_route: Array of claim IDs in optimal visit order
-    - time_blocks: Array of {start_time, end_time, claim_id, activity, notes}
-    - weather_windows: Best times for outdoor inspections
-    - risk_alerts: Array of potential issues
-    - recommendations: Actionable advice
-    - efficiency_score: 0-100 rating`;
+Analyze claims data, weather conditions, and travel distances to create an efficient daily plan for ${targetDate}.
 
-    const usrText = userPrompt?.template || `Create an optimized daily plan for ${targetDate} with these claims:
-
+Claims to schedule:
 ${JSON.stringify(claimsSummary, null, 2)}
 
 Weather conditions by location:
@@ -173,12 +157,40 @@ Consider:
 
 Optimize for:
 - Meeting all SLA requirements
-- Minimizing travel time
+- Minimizing travel time between locations
 - Working during safe weather conditions
 - Completing high-priority claims first
-- Balancing workload throughout the day`;
+- Balancing workload throughout the day
 
-    // 5. Call OpenAI API
+Return a JSON response with:
+{
+  "daily_brief": "Executive summary of the day's plan",
+  "optimized_route": ["claim_id1", "claim_id2", ...] in optimal visit order,
+  "time_blocks": [
+    {
+      "start_time": "08:00",
+      "end_time": "09:30",
+      "claim_id": "claim_id",
+      "activity": "activity description",
+      "travel_minutes": 15,
+      "notes": "specific considerations"
+    }
+  ],
+  "weather_windows": {
+    "best_times": ["08:00-12:00", "14:00-16:00"],
+    "avoid_times": ["17:00-18:00"],
+    "reason": "explanation"
+  },
+  "risk_alerts": ["potential issue 1", "potential issue 2"],
+  "recommendations": ["actionable advice 1", "actionable advice 2"],
+  "efficiency_score": 85
+}
+
+Provide a practical, actionable daily plan that maximizes efficiency while ensuring safety and quality.`;
+
+    const optimizationPrompt = promptData?.template || defaultPrompt;
+
+    // 5. Call OpenAI API with SINGLE prompt
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -188,8 +200,7 @@ Optimize for:
       body: JSON.stringify({
         model: "gpt-4",
         messages: [
-          { role: "system", content: sysText },
-          { role: "user", content: usrText },
+          { role: "user", content: optimizationPrompt }
         ],
         response_format: { type: "json_object" },
         temperature: 0.3,
