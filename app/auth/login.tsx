@@ -1,6 +1,6 @@
 // app/auth/login.tsx
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, Alert, Switch, SafeAreaView } from 'react-native';
 import { colors } from '@/theme/colors';
 import { signIn, signUpAdmin, setDevCreds, getDevCreds } from '@/services/auth';
 import { useRouter } from 'expo-router';
@@ -51,7 +51,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Logo */}
       <View style={styles.logoContainer}>
         <View style={styles.logo}>
@@ -103,7 +103,7 @@ export default function LoginScreen() {
       </View>
 
       <Text style={styles.hint}>Login: john@claimsiq.ai / admin123</Text>
-    </View>
+    </SafeAreaView>
   );
 }
 

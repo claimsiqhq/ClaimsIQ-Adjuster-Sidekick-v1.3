@@ -1,6 +1,6 @@
 // app/document/upload.tsx
 import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView, SafeAreaView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { colors } from '@/theme/colors';
@@ -102,8 +102,9 @@ export default function DocumentUploadScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Header title="Upload Document" subtitle="Add documents to your claim" />
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
+        <Header title="Upload Document" subtitle="Add documents to your claim" />
 
       <Section title="Select Document Type">
         <View style={styles.typeGrid}>
@@ -187,11 +188,16 @@ export default function DocumentUploadScreen() {
           )}
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.bgSoft,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.bgSoft,
