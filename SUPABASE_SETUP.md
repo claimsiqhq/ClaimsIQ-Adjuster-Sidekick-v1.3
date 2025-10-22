@@ -17,12 +17,6 @@ Your edge functions for AI processing are failing because the OpenAI API key nee
 **OpenAI API Key (REQUIRED):**
    - **Name**: `OPENAI_API_KEY`
    - **Value**: Your OpenAI API key (starts with `sk-`)
-   
-**PDF Conversion API Key (OPTIONAL but recommended for PDF processing):**
-   - **Name**: `PDF_CO_API_KEY`
-   - **Value**: Your pdf.co API key (sign up free at https://pdf.co)
-   - OR **Name**: `API2PDF_KEY`
-   - **Value**: Your api2pdf.com API key
 
 2. Click **"Create Secret"** after each one
 
@@ -43,7 +37,7 @@ supabase link --project-ref lyppkkpawalcchbgbkxg
 # Deploy Vision annotation function (FIXED - handles camera photos with AI damage detection)
 supabase functions deploy vision-annotate
 
-# Deploy FNOL extraction function (with PDF to image conversion)
+# Deploy FNOL extraction function (uses free unpdf library for PDF conversion)
 supabase functions deploy fnol-extract-with-conversion
 
 # Deploy Daily optimization function
