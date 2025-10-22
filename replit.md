@@ -1,128 +1,115 @@
-# Overview
+# ClaimsiQ Sidekick
 
-Claims iQ Sidekick is a native iOS insurance claims inspection application built with Expo (React Native) specifically for iPhone devices. The app enables field adjusters to capture photos, manage claims, and leverage AI-powered damage detection through OpenAI's Vision API. It features offline-first architecture with Supabase backend integration, supporting camera capture, AI annotation workflows, claims tracking, PDF FNOL extraction with multi-page support, and administrative prompt management.
+## Overview
 
-# User Preferences
+ClaimsiQ Sidekick is a native iOS insurance claims inspection application built with React Native and Expo. The app enables field adjusters to capture and annotate photos with AI-powered damage detection, manage claims with offline-first architecture, and streamline the entire claims inspection workflow. The system leverages OpenAI Vision API for intelligent damage analysis and uses Supabase as the backend for data storage, authentication, and file management.
+
+## User Preferences
 
 Preferred communication style: Simple, everyday language.
 
-# System Architecture
+## System Architecture
 
-## Frontend Architecture
+### Frontend Architecture
 
-**Framework & Platform:**
-- Expo SDK 54+ with React Native 0.81.4
-- TypeScript strict mode enabled (`tsconfig.json` with `"strict": true`)
-- File-based routing via `expo-router` v6
-- iOS-only (iPhone), not supporting web or Android platforms
-- Uses Expo Secure Store for iOS Keychain integration
+**Framework**: React Native with Expo SDK 54, TypeScript (strict mode), and Expo Router for file-based navigation.
 
-**UI & Design Patterns:**
-- Functional components exclusively using React Hooks (useState, useEffect, useMemo)
-- Custom theme system with centralized color palette (`theme/colors.ts`)
-- Purple/pink brand colors (#7C3AED primary, #EC4899 secondary)
-- Tab-based navigation with 6 main sections: Home, Capture, Claims, Today, Map, Settings
-- Platform-specific icons: SF Symbols (iOS) via `expo-symbols`, Ionicons fallback for Android/web
+**Navigation Structure**: Tab-based navigation with five main tabs (Home, Today, Capture, Claims, Map, Settings) plus modal screens for detailed views (photo details, claim details, document uploads, admin panels).
 
-**State Management:**
-- Local component state via React Hooks
-- Session persistence through `@react-native-async-storage/async-storage`
-- Settings stored in AsyncStorage with toggle-based UI controls
-- No global state management library (Redux/Zustand) currently implemented
+**State Management**: Zustand for global state (active claim selection) with local component state for UI interactions.
 
-**Key Libraries:**
-- `@shopify/react-native-skia` for canvas-based photo overlay rendering
-- `expo-camera` for photo capture
-- `expo-secure-store` for sensitive credential storage (iOS Keychain)
-- `react-native-reanimated` for animations
+**Offline-First Design**: Local SQLite database mirrors remote Supabase data. All operations queue locally when offline and sync bidirectionally when connection is restored. The app uses `@react-native-community/netinfo` for network detection and maintains a sync queue table for pending operations.
 
-## Backend Architecture
+**UI Components**: Custom component library with consistent theming (purple/pink brand colors). Reusable components include Header, Section, ThemedView, ThemedText, and specialized components for workflows, photo overlays, and sync status.
 
-**Database & BaaS:**
-- Supabase PostgreSQL with Row-Level Security (RLS)
-- Real-time capabilities enabled
-- Tables: `claims`, `media`, `app_prompts`, `user_profiles`
-- Session management with auto-refresh tokens
+### Backend Architecture
 
-**Authentication:**
-- Supabase Auth with email/password
-- Auto-login support for development via environment variables
-- Session persistence across app restarts
-- Protected routes with redirect to `/auth/login` if unauthenticated
+**Database**: Supabase (PostgreSQL) with row-level security (RLS) policies for multi-tenant support. Core tables include claims, media, documents, profiles, inspection_steps, daily_optimizations, and app_prompts.
 
-**Data Services Pattern:**
-- Service layer architecture (`services/*.ts` modules)
-- Separation: UI components → service functions → Supabase client
-- Key services:
-  - `auth.ts` - Authentication, user profiles, session management
-  - `media.ts` - Photo/media CRUD, status tracking, annotation data
-  - `claims.ts` - Claims search and management
-  - `prompts.ts` - Dynamic AI prompt versioning system
-  - `annotate.ts` - Edge function invocation wrapper
+**Authentication**: Supabase Auth with email/password login. Sessions persist via AsyncStorage. Credentials are embedded in the app configuration for guaranteed connectivity (`config/credentials.ts`).
 
-**Media Pipeline:**
-1. Photo capture → Local storage
-2. Upload to Supabase Storage (public bucket)
-3. Create media record with status='uploading'
-4. Invoke Edge Function for AI annotation
-5. Update record with detections, QC data, status='done'
+**File Storage**: Supabase Storage buckets for media (photos, LiDAR scans) and documents (PDFs, reports). Files are uploaded as base64-encoded ArrayBuffers with automatic public URL generation.
 
-## AI Integration
+**Edge Functions**: Four Supabase Edge Functions handle AI processing:
+- `vision-annotate`: OpenAI Vision API for damage detection in photos
+- `fnol-extract`: FNOL data extraction from PDF documents
+- `workflow-generate`: AI-generated inspection workflows
+- `daily-optimize`: Route optimization and daily scheduling
 
-**OpenAI Vision API:**
-- GPT-4 Vision model for damage detection
-- Edge Function: `supabase/functions/vision-annotate/index.ts`
-- Endpoint: `https://api.openai.com/v1/chat/completions`
-- Dynamic prompt system sourced from `app_prompts` table
-- Template variable substitution (e.g., `{{SCENE_TAGS}}`)
+### Data Synchronization
 
-**Annotation Output Structure:**
-```typescript
-{
-  detections: Detection[];  // Bounding boxes or polygons
-  photo_qc?: {             // Quality metrics
-    blur_score?: number;
-    glare?: boolean;
-    underexposed?: boolean;
-  };
-  model?: { name: string; ts: string };
-}
-```
+**Bidirectional Sync**: Push local changes to Supabase, then pull remote changes to local SQLite. Sync operations are queued with operation type (insert/update/delete), table name, record ID, and data payload.
 
-**Photo Overlay Rendering:**
-- Skia Canvas for performance
-- Color-coded severity (severe=red, moderate=orange, minor=blue)
-- Supports both bbox and polygon shapes
-- Toggle visibility in photo detail view
+**Conflict Resolution**: Last-write-wins strategy based on `updated_at` timestamps. Remote changes override local changes when timestamps indicate the remote version is newer.
+
+**Sync Triggers**: Automatic background sync on app launch, manual sync via UI, and periodic background sync when online.
+
+### AI Integration
+
+**OpenAI Vision API**: Analyzes photos to detect damage, classify severity (minor/moderate/severe), and generate bounding box or polygon annotations. Results stored as JSON in the media table's `anno_json` field.
+
+**Prompt Management**: Dynamic prompt system stored in `app_prompts` table allows versioning and A/B testing of AI instructions without app updates. Active prompts are fetched at runtime.
+
+**FNOL Extraction**: PDF documents are processed server-side to extract claim data (policy numbers, dates, addresses, damage descriptions) using structured prompts and vision analysis.
+
+### Location Services
+
+**GPS Integration**: Expo Location API for capturing coordinates with photo metadata and claim locations. Supports geocoding addresses to coordinates and reverse geocoding coordinates to addresses.
+
+**Weather Integration**: Weatherbit.io API provides current conditions, forecasts, and historical weather data for loss dates. Includes safety checks for roof inspections based on wind speed and precipitation.
+
+**Route Optimization**: Calculates optimal daily routes using distance calculations and ETA estimates. Supports manual reordering and considers traffic/weather windows.
+
+### Photo Processing Pipeline
+
+**Capture Flow**: Camera → Local Save → Upload to Storage → Insert Media Record → Queue Annotation → Process with AI → Display Results
+
+**Quality Control**: Blur detection, glare detection, exposure analysis, and distance hints stored in `photo_qc` JSON field.
+
+**Annotation Overlay**: Skia Canvas renders bounding boxes and polygons over photos. Detections include labels, severity, confidence scores, and evidence descriptions.
+
+### Workflow System
+
+**Dynamic Workflows**: AI generates step-by-step inspection checklists based on claim type and damage. Steps include photo requirements, measurement tasks, document uploads, and notes.
+
+**Evidence Validation**: Each step defines requirements (minimum photo count, required tags, GPS verification). Steps auto-complete when evidence meets criteria.
+
+**Progress Tracking**: Real-time completion percentage, pending tasks, and next recommended actions displayed in checklist UI.
 
 ## External Dependencies
 
-**Third-Party Services:**
-- **Supabase** - PostgreSQL database, authentication, storage, edge functions
-  - Connection via `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_API_KEY`
-  - Edge function secrets: `OPENAI_API_KEY`
-- **OpenAI** - GPT-4 Vision API for damage detection and annotation
-  - Consumed via Supabase Edge Function
-  - Requires API key in function secrets
+### Third-Party Services
 
-**Cloud Storage:**
-- Supabase Storage buckets for media files
-- Public URL generation for image access
-- RLS policies control media access per organization/user
+**Supabase**: PostgreSQL database, authentication, storage buckets, and edge functions. Project URL: `https://lyppkkpawalcchbgbkxg.supabase.co`
 
-**Development Tools:**
-- EAS (Expo Application Services) for builds
-- Project ID: `31e9a2f0-7c90-41af-bdf1-f3e53d0e75dd`
-- Owner: `claimsiq`
+**OpenAI API**: GPT-4 Vision for damage detection and data extraction. API key configured in Supabase Edge Function secrets.
 
-**Database Schema:**
-- Migration files in `supabase/schema/`:
-  - `prompts.sql` - Dynamic AI prompt versioning
-  - `claims.sql` - Claims table structure
-  - `media_rls.sql` - Row-level security policies
-- Requires manual execution in Supabase SQL Editor
+**Weatherbit.io**: Weather data API for current conditions, forecasts, and historical data. API key configured via environment variable.
 
-**Environment Configuration:**
-- `.env` file for Expo public variables (prefix: `EXPO_PUBLIC_`)
-- Development credentials for auto-fill during testing
-- Never committed to version control (`.gitignore` enforced)
+### Key NPM Packages
+
+- `@supabase/supabase-js`: Supabase client SDK
+- `expo-camera`: Camera functionality for photo capture
+- `expo-location`: GPS and geocoding services
+- `expo-sqlite`: Local SQLite database
+- `expo-file-system`: File operations and base64 encoding
+- `expo-secure-store`: Secure credential storage
+- `@react-native-async-storage/async-storage`: Persistent key-value storage
+- `@react-native-community/netinfo`: Network connectivity detection
+- `drizzle-orm`: Type-safe ORM (configured but not actively used)
+- `@shopify/react-native-skia`: Canvas rendering for annotations
+- `zustand`: Lightweight state management
+
+### Platform-Specific Features
+
+**iOS-Only Build**: App targets iPhone devices exclusively with support for LiDAR scanning (temporarily disabled), camera access, location services, and secure keychain storage.
+
+**Required Permissions**: Camera, microphone (voice notes), photo library (export), and location (when in use).
+
+### Environment Configuration
+
+**Build Profiles**: Development (internal distribution), preview (internal), and production builds configured in `eas.json`.
+
+**Environment Variables**: Supabase URL and API key embedded directly in app configuration and EAS build profiles for maximum reliability. Weather and Google Maps API keys configured via `EXPO_PUBLIC_*` variables.
+
+**Development Credentials**: Default login credentials (`john@claimsiq.ai` / `admin123`) embedded for testing and development builds.
