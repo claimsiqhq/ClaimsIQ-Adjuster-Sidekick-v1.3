@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
             ],
           },
         ],
-        response_format: { type: String(settings.response_format ?? "json_object") as "json_object" },
+        response_format: { type: "json_object" },
       }),
     });
     if (!res.ok) throw new Error(await res.text());
@@ -172,6 +172,25 @@ Deno.serve(async (req) => {
       status: 200,
     });
   } catch (e: any) {
+    console.error("Vision annotation error:", e);
+    
+    // Try to update media with error status
+    try {
+      const payload = await req.json().catch(() => ({ mediaId: null }));
+      if (payload?.mediaId) {
+        const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        await sb
+          .from("media")
+          .update({
+            status: "error",
+            last_error: e?.message || String(e),
+          })
+          .eq("id", payload.mediaId);
+      }
+    } catch (updateError) {
+      console.error("Failed to update error status:", updateError);
+    }
+    
     return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), {
       headers: { ...CORS, "Content-Type": "application/json" },
       status: 500,

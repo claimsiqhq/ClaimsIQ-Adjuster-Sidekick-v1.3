@@ -11,12 +11,20 @@ Your edge functions for AI processing are failing because the OpenAI API key nee
 2. Select your project: `lyppkkpawalcchbgbkxg`
 3. Navigate to: **Settings** → **Functions** → **Secrets**
 
-### Step 2: Add OpenAI API Key
-1. Click **"New Secret"**
-2. Add the following secret:
+### Step 2: Add Required API Keys
+1. Click **"New Secret"** for each of the following:
+
+**OpenAI API Key (REQUIRED):**
    - **Name**: `OPENAI_API_KEY`
    - **Value**: Your OpenAI API key (starts with `sk-`)
-3. Click **"Create Secret"**
+   
+**PDF Conversion API Key (OPTIONAL but recommended for PDF processing):**
+   - **Name**: `PDF_CO_API_KEY`
+   - **Value**: Your pdf.co API key (sign up free at https://pdf.co)
+   - OR **Name**: `API2PDF_KEY`
+   - **Value**: Your api2pdf.com API key
+
+2. Click **"Create Secret"** after each one
 
 ## 2. Deploy Edge Functions
 
@@ -32,11 +40,11 @@ supabase link --project-ref lyppkkpawalcchbgbkxg
 
 ### Step 3: Deploy the edge functions
 ```bash
-# Deploy FNOL extraction function
-supabase functions deploy fnol-extract
-
-# Deploy Vision annotation function  
+# Deploy Vision annotation function (FIXED - handles camera photos with AI damage detection)
 supabase functions deploy vision-annotate
+
+# Deploy FNOL extraction function (with PDF to image conversion)
+supabase functions deploy fnol-extract-with-conversion
 
 # Deploy Daily optimization function
 supabase functions deploy daily-optimize
@@ -44,6 +52,10 @@ supabase functions deploy daily-optimize
 # Deploy Workflow generation function
 supabase functions deploy workflow-generate
 ```
+
+**IMPORTANT FIXES APPLIED:**
+- `vision-annotate`: Fixed response_format bug that was causing camera/photo errors
+- `fnol-extract-with-conversion`: Added proper PDF to image conversion for multi-page documents
 
 ## 3. Verify Functions are Working
 
