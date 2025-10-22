@@ -12,6 +12,7 @@ const SETTINGS_KEYS = {
   DARK_MODE: 'settings_dark_mode',
   WIFI_ONLY: 'settings_wifi_only',
   EMBED_ANNOTATIONS: 'settings_embed_annotations',
+  UNITS: 'settings_units', // 'metric' or 'imperial'
 };
 
 function Row({ label, storageKey }: { label: string; storageKey: string }) {
@@ -33,6 +34,39 @@ function Row({ label, storageKey }: { label: string; storageKey: string }) {
       <Text style={rowStyles.label}>{label}</Text>
       <Switch value={value} onValueChange={handleToggle} />
     </View>
+  );
+}
+
+function UnitsRow() {
+  const [units, setUnits] = useState<'metric' | 'imperial'>('imperial');
+
+  useEffect(() => {
+    AsyncStorage.getItem(SETTINGS_KEYS.UNITS).then((stored) => {
+      if (stored === 'metric' || stored === 'imperial') {
+        setUnits(stored);
+      }
+    });
+  }, []);
+
+  const handleToggle = async () => {
+    const newUnits = units === 'imperial' ? 'metric' : 'imperial';
+    setUnits(newUnits);
+    await AsyncStorage.setItem(SETTINGS_KEYS.UNITS, newUnits);
+  };
+
+  return (
+    <Pressable style={rowStyles.row} onPress={handleToggle}>
+      <Text style={rowStyles.label}>Temperature Units</Text>
+      <View style={rowStyles.unitsContainer}>
+        <Text style={[rowStyles.unitOption, units === 'imperial' && rowStyles.unitActive]}>
+          °F / mph
+        </Text>
+        <Text style={rowStyles.unitDivider}>|</Text>
+        <Text style={[rowStyles.unitOption, units === 'metric' && rowStyles.unitActive]}>
+          °C / km/h
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
