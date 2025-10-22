@@ -6,6 +6,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { renderPageAsImage, getResolvedPDFJS } from "npm:unpdf@0.12.0";
+import { encode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -38,7 +39,7 @@ async function convertPDFToImages(pdfData: Uint8Array): Promise<string[]> {
     
     // Convert buffers to base64 data URLs for OpenAI
     const base64Images = imageBuffers.map(buffer => {
-      const base64 = btoa(String.fromCharCode(...buffer));
+      const base64 = encode(buffer);
       return `data:image/png;base64,${base64}`;
     });
     
