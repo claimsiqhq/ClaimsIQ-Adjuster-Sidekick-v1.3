@@ -48,8 +48,8 @@ supabase functions deploy workflow-generate
 ```
 
 **IMPORTANT FIXES APPLIED:**
-- `vision-annotate`: Fixed response_format bug that was causing camera/photo errors
-- `fnol-extract-with-conversion`: Added proper PDF to image conversion for multi-page documents
+- `vision-annotate`: Fixed response_format bug that was causing camera/photo errors  
+- `fnol-extract`: Now includes FREE PDF to image conversion using unpdf library (no paid APIs needed)
 
 ## 3. Verify Functions are Working
 
