@@ -58,6 +58,15 @@ export default function ClaimsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Claims</Text>
+        <Pressable 
+          style={styles.headerButton}
+          onPress={() => router.push('/document/upload')}
+        >
+          <Text style={styles.headerButtonText}>+ Upload FNOL</Text>
+        </Pressable>
+      </View>
       <FlatList
         data={claims}
         keyExtractor={(item) => item.id}
@@ -71,14 +80,14 @@ export default function ClaimsScreen() {
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No claims found</Text>
             <Text style={styles.emptySubtext}>
-              Upload an FNOL PDF document to create your first claim.
-              {'\n\n'}Go to Capture → Document to get started.
+              Upload an FNOL PDF document to automatically extract claim data
+              and generate inspection workflows using AI.
             </Text>
             <Pressable 
               style={styles.uploadButton}
               onPress={() => router.push('/document/upload')}
             >
-              <Text style={styles.uploadButtonText}>Upload FNOL Document</Text>
+              <Text style={styles.uploadButtonText}>📄 Upload FNOL PDF</Text>
             </Pressable>
           </View>
         }
@@ -118,5 +127,54 @@ const styles = StyleSheet.create({
     marginTop: 50,
     fontSize: 16,
     color: colors.textSoft,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  headerButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  headerButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptySubtext: {
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+    fontSize: 14,
+    color: colors.textSoft,
+    lineHeight: 20,
+  },
+  uploadButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  uploadButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '700',
   }
 });
