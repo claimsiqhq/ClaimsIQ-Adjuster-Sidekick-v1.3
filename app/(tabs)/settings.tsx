@@ -39,6 +39,7 @@ function Row({ label, storageKey }: { label: string; storageKey: string }) {
 
 function UnitsRow() {
   const [units, setUnits] = useState<'metric' | 'imperial'>('imperial');
+  const router = useRouter();
 
   useEffect(() => {
     AsyncStorage.getItem(SETTINGS_KEYS.UNITS).then((stored) => {
@@ -52,21 +53,32 @@ function UnitsRow() {
     const newUnits = units === 'imperial' ? 'metric' : 'imperial';
     setUnits(newUnits);
     await AsyncStorage.setItem(SETTINGS_KEYS.UNITS, newUnits);
+    // Refresh the home screen to show new units
+    router.replace('/(tabs)/');
   };
 
   return (
-    <Pressable style={rowStyles.row} onPress={handleToggle}>
-      <Text style={rowStyles.label}>Temperature Units</Text>
-      <View style={rowStyles.unitsContainer}>
-        <Text style={[rowStyles.unitOption, units === 'imperial' && rowStyles.unitActive]}>
-          °F / mph
-        </Text>
-        <Text style={rowStyles.unitDivider}>|</Text>
-        <Text style={[rowStyles.unitOption, units === 'metric' && rowStyles.unitActive]}>
-          °C / km/h
-        </Text>
-      </View>
-    </Pressable>
+    <View style={rowStyles.unitsCard}>
+      <Text style={rowStyles.unitsTitle}>Temperature & Speed Units</Text>
+      <Pressable style={rowStyles.unitsToggle} onPress={handleToggle}>
+        <View style={[rowStyles.unitOptionBox, units === 'imperial' && rowStyles.unitOptionActive]}>
+          <Text style={[rowStyles.unitOptionText, units === 'imperial' && rowStyles.unitOptionTextActive]}>
+            Imperial
+          </Text>
+          <Text style={[rowStyles.unitOptionSub, units === 'imperial' && rowStyles.unitOptionTextActive]}>
+            °F, mph
+          </Text>
+        </View>
+        <View style={[rowStyles.unitOptionBox, units === 'metric' && rowStyles.unitOptionActive]}>
+          <Text style={[rowStyles.unitOptionText, units === 'metric' && rowStyles.unitOptionTextActive]}>
+            Metric
+          </Text>
+          <Text style={[rowStyles.unitOptionSub, units === 'metric' && rowStyles.unitOptionTextActive]}>
+            °C, km/h
+          </Text>
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
@@ -83,8 +95,11 @@ export default function SettingsScreen() {
         <Text style={styles.li}>• Microsoft 365: Not linked</Text>
         <Text style={styles.li}>• Vapi: Not linked</Text>
       </Section>
-      <Section title="Preferences">
-        <UnitsRow />
+      
+      {/* Units Toggle - Most Prominent */}
+      <UnitsRow />
+      
+      <Section title="Other Preferences">
         <Row label="Dark Mode" storageKey={SETTINGS_KEYS.DARK_MODE} />
         <Row label="Auto-upload on Wi-Fi only" storageKey={SETTINGS_KEYS.WIFI_ONLY} />
         <Row label="Embed annotations in report exports" storageKey={SETTINGS_KEYS.EMBED_ANNOTATIONS} />
@@ -109,10 +124,50 @@ export default function SettingsScreen() {
 const rowStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.white, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.line, marginBottom: 8, marginHorizontal: 16 },
   label: { color: colors.core, fontWeight: '500' },
-  unitsContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  unitOption: { fontSize: 14, color: colors.textSoft },
-  unitActive: { color: colors.primary, fontWeight: '600' },
-  unitDivider: { color: colors.line }
+  unitsCard: { 
+    backgroundColor: colors.white, 
+    padding: 16, 
+    marginHorizontal: 16, 
+    marginBottom: 12, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: colors.line 
+  },
+  unitsTitle: { 
+    fontSize: 15, 
+    fontWeight: '600', 
+    color: colors.core, 
+    marginBottom: 12 
+  },
+  unitsToggle: { 
+    flexDirection: 'row', 
+    backgroundColor: colors.bgSoft, 
+    borderRadius: 10, 
+    padding: 4 
+  },
+  unitOptionBox: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    paddingHorizontal: 16, 
+    borderRadius: 8, 
+    alignItems: 'center' 
+  },
+  unitOptionActive: { 
+    backgroundColor: colors.primary 
+  },
+  unitOptionText: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: colors.textSoft, 
+    marginBottom: 2 
+  },
+  unitOptionTextActive: { 
+    color: colors.white 
+  },
+  unitOptionSub: { 
+    fontSize: 11, 
+    color: colors.textSoft 
+  }
 });
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgSoft },
