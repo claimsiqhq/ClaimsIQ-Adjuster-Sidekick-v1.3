@@ -1,5 +1,5 @@
 // app/admin/prompts.tsx
-// SIMPLIFIED: One active prompt per function, easy editing
+// Simplified: One prompt per function for cleaner management
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View, ActivityIndicator } from 'react-native';
 import { listPrompts, createPromptVersion, AppPrompt } from '@/services/prompts';
@@ -10,8 +10,7 @@ interface PromptEdit {
   key: string;
   title: string;
   description: string;
-  systemPrompt: string;
-  userPrompt: string;
+  prompt: string;
 }
 
 export default function AdminPromptsScreen() {
@@ -19,29 +18,26 @@ export default function AdminPromptsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // One edit state per prompt function
+  // One state per prompt function
   const [fnol, setFnol] = useState<PromptEdit>({
     key: 'fnol_extract',
     title: 'FNOL Extraction',
     description: 'Extract claim data from FNOL PDFs',
-    systemPrompt: '',
-    userPrompt: '',
+    prompt: '',
   });
   
   const [vision, setVision] = useState<PromptEdit>({
     key: 'vision_annotate',
     title: 'Photo Annotation',
     description: 'Detect damage in photos',
-    systemPrompt: '',
-    userPrompt: '',
+    prompt: '',
   });
   
   const [workflow, setWorkflow] = useState<PromptEdit>({
     key: 'workflow_generate',
     title: 'Workflow Generation',
     description: 'Generate inspection workflows',
-    systemPrompt: '',
-    userPrompt: '',
+    prompt: '',
   });
 
   useEffect(() => {
@@ -53,36 +49,21 @@ export default function AdminPromptsScreen() {
       setLoading(true);
       const allPrompts = await listPrompts();
       
-      // Get active prompts only
-      const fnolSys = allPrompts.find(p => p.key === 'fnol_extract_system' && p.is_active);
-      const fnolUser = allPrompts.find(p => p.key === 'fnol_extract_user' && p.is_active);
-      const visionSys = allPrompts.find(p => p.key === 'vision_annotate_system' && p.is_active);
-      const visionUser = allPrompts.find(p => p.key === 'vision_annotate_user' && p.is_active);
-      const workflowSys = allPrompts.find(p => p.key === 'workflow_generate_system' && p.is_active);
-      const workflowUser = allPrompts.find(p => p.key === 'workflow_generate_user' && p.is_active);
+      // Get active prompts (now single prompts)
+      const fnolPrompt = allPrompts.find(p => p.key === 'fnol_extract' && p.is_active);
+      const visionPrompt = allPrompts.find(p => p.key === 'vision_annotate' && p.is_active);
+      const workflowPrompt = allPrompts.find(p => p.key === 'workflow_generate' && p.is_active);
       
-      if (fnolSys || fnolUser) {
-        setFnol(prev => ({
-          ...prev,
-          systemPrompt: fnolSys?.template || '',
-          userPrompt: fnolUser?.template || '',
-        }));
+      if (fnolPrompt) {
+        setFnol(prev => ({ ...prev, prompt: fnolPrompt.template || '' }));
       }
       
-      if (visionSys || visionUser) {
-        setVision(prev => ({
-          ...prev,
-          systemPrompt: visionSys?.template || '',
-          userPrompt: visionUser?.template || '',
-        }));
+      if (visionPrompt) {
+        setVision(prev => ({ ...prev, prompt: visionPrompt.template || '' }));
       }
       
-      if (workflowSys || workflowUser) {
-        setWorkflow(prev => ({
-          ...prev,
-          systemPrompt: workflowSys?.template || '',
-          userPrompt: workflowUser?.template || '',
-        }));
+      if (workflowPrompt) {
+        setWorkflow(prev => ({ ...prev, prompt: workflowPrompt.template || '' }));
       }
     } catch (error: any) {
       Alert.alert('Error', 'Failed to load prompts: ' + error.message);
@@ -95,31 +76,17 @@ export default function AdminPromptsScreen() {
     try {
       setSaving(true);
       
-      // Save system prompt
-      if (promptEdit.systemPrompt) {
-        await createPromptVersion({
-          org_id: null,
-          key: `${promptEdit.key}_system`,
-          role: 'system',
-          description: `System prompt for ${promptEdit.title}`,
-          template: promptEdit.systemPrompt,
-          is_active: true,
-        } as any);
-      }
+      // Save single prompt
+      await createPromptVersion({
+        org_id: null,
+        key: promptEdit.key,
+        role: 'user', // We'll just use 'user' role for all single prompts
+        description: promptEdit.description,
+        template: promptEdit.prompt,
+        is_active: true,
+      } as any);
       
-      // Save user prompt
-      if (promptEdit.userPrompt) {
-        await createPromptVersion({
-          org_id: null,
-          key: `${promptEdit.key}_user`,
-          role: 'user',
-          description: `User prompt for ${promptEdit.title}`,
-          template: promptEdit.userPrompt,
-          is_active: true,
-        } as any);
-      }
-      
-      Alert.alert('Success', `${promptEdit.title} prompts updated!`);
+      Alert.alert('Success', `${promptEdit.title} prompt updated!`);
       await loadPrompts();
     } catch (error: any) {
       Alert.alert('Error', 'Failed to save: ' + error.message);
@@ -151,43 +118,66 @@ export default function AdminPromptsScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.subtitle}>
-          Edit the AI prompts used for data extraction and analysis. Each function has two prompts: System (instructions) and User (task).
+          Edit the AI prompts used for data extraction and analysis. Each function uses a single, comprehensive prompt that includes both instructions and the task.
         </Text>
 
         {/* FNOL Extraction */}
         <PromptEditor
           title={fnol.title}
           description={fnol.description}
-          systemPrompt={fnol.systemPrompt}
-          userPrompt={fnol.userPrompt}
-          onSystemChange={(text) => setFnol({ ...fnol, systemPrompt: text })}
-          onUserChange={(text) => setFnol({ ...fnol, userPrompt: text })}
+          prompt={fnol.prompt}
+          onChange={(text) => setFnol({ ...fnol, prompt: text })}
           onSave={() => savePrompt(fnol)}
           saving={saving}
+          placeholder={`Extract insurance claim data from this FNOL document and return as JSON with these exact fields:
+- claim_number (string)
+- policy_number (string) 
+- insured_name (string)
+- insured_phone (string)
+- loss_address (string - full address)
+- loss_date (string - ISO format YYYY-MM-DD)
+- loss_type (string - e.g., "Water Damage", "Fire", "Wind")
+- loss_description (string - detailed description)
+
+Be thorough and extract all available information. If a field is not found, use null.`}
         />
 
         {/* Photo Annotation */}
         <PromptEditor
           title={vision.title}
           description={vision.description}
-          systemPrompt={vision.systemPrompt}
-          userPrompt={vision.userPrompt}
-          onSystemChange={(text) => setVision({ ...vision, systemPrompt: text })}
-          onUserChange={(text) => setVision({ ...vision, userPrompt: text })}
+          prompt={vision.prompt}
+          onChange={(text) => setVision({ ...vision, prompt: text })}
           onSave={() => savePrompt(vision)}
           saving={saving}
+          placeholder={`Analyze this insurance claim photo for damage assessment.
+
+Identify and describe:
+1. Type of damage (water, wind, fire, structural, etc.)
+2. Severity (minor, moderate, severe, critical)
+3. Affected materials and components
+4. Recommended immediate actions
+
+Return JSON with detected damage, bounding boxes, confidence scores, and photo quality metrics.`}
         />
 
         {/* Workflow Generation */}
         <PromptEditor
           title={workflow.title}
           description={workflow.description}
-          systemPrompt={workflow.systemPrompt}
-          userPrompt={workflow.userPrompt}
-          onSystemChange={(text) => setWorkflow({ ...workflow, systemPrompt: text })}
-          onUserChange={(text) => setWorkflow({ ...workflow, userPrompt: text })}
+          prompt={workflow.prompt}
+          onChange={(text) => setWorkflow({ ...workflow, prompt: text })}
           onSave={() => savePrompt(workflow)}
           saving={saving}
+          placeholder={`Generate a step-by-step inspection workflow for this claim based on the damage type and severity.
+
+Include:
+1. Required photos to capture
+2. Measurements to take
+3. Safety checks
+4. Documentation needed
+
+Return as a JSON array of inspection steps with titles and descriptions.`}
         />
       </ScrollView>
     </SafeAreaView>
@@ -197,21 +187,19 @@ export default function AdminPromptsScreen() {
 function PromptEditor({
   title,
   description,
-  systemPrompt,
-  userPrompt,
-  onSystemChange,
-  onUserChange,
+  prompt,
+  onChange,
   onSave,
   saving,
+  placeholder,
 }: {
   title: string;
   description: string;
-  systemPrompt: string;
-  userPrompt: string;
-  onSystemChange: (text: string) => void;
-  onUserChange: (text: string) => void;
+  prompt: string;
+  onChange: (text: string) => void;
   onSave: () => void;
   saving: boolean;
+  placeholder?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -227,27 +215,21 @@ function PromptEditor({
 
       {expanded && (
         <View style={styles.promptBody}>
-          <Text style={styles.label}>System Prompt (AI Instructions)</Text>
+          <Text style={styles.label}>Prompt Template</Text>
           <TextInput
             style={styles.textArea}
             multiline
-            numberOfLines={8}
-            value={systemPrompt}
-            onChangeText={onSystemChange}
-            placeholder="Enter system instructions for the AI..."
+            numberOfLines={12}
+            value={prompt}
+            onChangeText={onChange}
+            placeholder={placeholder || "Enter the prompt template..."}
+            placeholderTextColor={colors.textLight}
             textAlignVertical="top"
           />
 
-          <Text style={styles.label}>User Prompt (Task Description)</Text>
-          <TextInput
-            style={styles.textArea}
-            multiline
-            numberOfLines={6}
-            value={userPrompt}
-            onChangeText={onUserChange}
-            placeholder="Enter the user task prompt..."
-            textAlignVertical="top"
-          />
+          <Text style={styles.hint}>
+            💡 This single prompt includes both the instructions and the task. Use {`{{VARIABLES}}`} for dynamic content.
+          </Text>
 
           <Pressable
             style={[styles.saveButton, saving && styles.buttonDisabled]}
@@ -355,15 +337,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   textArea: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.bgSoft,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: 10,
     padding: 12,
     fontSize: 13,
     color: colors.core,
-    minHeight: 120,
+    minHeight: 200,
     fontFamily: 'monospace',
+  },
+  hint: {
+    fontSize: 13,
+    color: colors.textLight,
+    marginTop: 8,
+    lineHeight: 18,
   },
   saveButton: {
     backgroundColor: colors.primary,
