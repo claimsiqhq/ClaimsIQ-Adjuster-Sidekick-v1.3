@@ -28,8 +28,7 @@
           "backgroundColor": "#F0E6FA"
         }
       ],
-      "expo-sqlite",
-      "./plugins/withLiDAR.js"
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
@@ -42,6 +41,9 @@
       "EXPO_PUBLIC_SUPABASE_URL": "https://lyppkkpawalcchbgbkxg.supabase.co",
       "EXPO_PUBLIC_SUPABASE_API_KEY": "sb_publishable_xG1vNYVo-wpyHi4WzCdUGg_9XFL8Gxr"
     },
-    "owner": "claimsiq"
+    "owner": "claimsiq",
+    "android": {
+      "package": "com.claimsiq.claimsiqadjustersidekickv13"
+    }
   }
 }
