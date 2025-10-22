@@ -129,17 +129,7 @@ export default function AdminPromptsScreen() {
           onChange={(text) => setFnol({ ...fnol, prompt: text })}
           onSave={() => savePrompt(fnol)}
           saving={saving}
-          placeholder={`Extract insurance claim data from this FNOL document and return as JSON with these exact fields:
-- claim_number (string)
-- policy_number (string) 
-- insured_name (string)
-- insured_phone (string)
-- loss_address (string - full address)
-- loss_date (string - ISO format YYYY-MM-DD)
-- loss_type (string - e.g., "Water Damage", "Fire", "Wind")
-- loss_description (string - detailed description)
-
-Be thorough and extract all available information. If a field is not found, use null.`}
+          placeholder={`You are extracting structured data from a First Notice of Loss (FNOL) document...`}
         />
 
         {/* Photo Annotation */}
