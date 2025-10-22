@@ -189,17 +189,6 @@ export default function HomeScreen() {
 
             <Pressable 
               style={styles.quickActionCard}
-              onPress={() => router.push('/claim/new')}
-            >
-              <View style={styles.quickActionIconBg}>
-                <Text style={styles.quickActionIcon}>➕</Text>
-              </View>
-              <Text style={styles.quickActionTitle}>New Claim</Text>
-              <Text style={styles.quickActionDesc}>Start new</Text>
-            </Pressable>
-
-            <Pressable 
-              style={styles.quickActionCard}
               onPress={() => router.push('/(tabs)/today')}
             >
               <View style={styles.quickActionIconBg}>
