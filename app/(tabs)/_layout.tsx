@@ -31,13 +31,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="today"
-        options={{
-          title: "Today",
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="capture"
         options={{
           title: "Capture",
@@ -70,6 +63,13 @@ export default function TabLayout() {
         options={{
           title: "Settings",
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="voice"
+        options={{
+          title: "Voice",
+          tabBarIcon: ({ color, size }) => <Ionicons name="mic-outline" size={size} color={color} />,
         }}
       />
     </Tabs>
