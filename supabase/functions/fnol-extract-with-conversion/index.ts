@@ -1,10 +1,11 @@
 // supabase/functions/fnol-extract-with-conversion/index.ts
 // Extracts structured data from FNOL PDF documents
-// Handles PDF to image conversion for OpenAI Vision API
+// Uses free open-source unpdf library for PDF to image conversion
 // Secrets required: OPENAI_API_KEY
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { renderPageAsImage, getResolvedPDFJS } from "npm:unpdf@0.12.0";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -16,67 +17,38 @@ const CORS = {
 };
 
 /**
- * Convert PDF to images using pdf.co API (or similar service)
- * You'll need to sign up for a free account at pdf.co to get an API key
+ * Convert PDF to images using free unpdf library
+ * Processes up to 10 pages for FNOL documents
  */
-async function convertPDFToImages(pdfUrl: string): Promise<string[]> {
-  // Option 1: Use pdf.co API (recommended - has free tier)
-  const PDF_CO_API_KEY = Deno.env.get("PDF_CO_API_KEY");
-  
-  if (PDF_CO_API_KEY) {
-    const response = await fetch("https://api.pdf.co/v1/pdf/convert/to/jpg", {
-      method: "POST",
-      headers: {
-        "x-api-key": PDF_CO_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: pdfUrl,
-        pages: "0-10", // First 10 pages max for FNOL
-        inline: true,
-        async: false,
-      }),
+async function convertPDFToImages(pdfData: Uint8Array): Promise<string[]> {
+  try {
+    const { getDocument } = await getResolvedPDFJS();
+    const pdf = await getDocument(pdfData).promise;
+    
+    // Process up to 10 pages for FNOL documents
+    const maxPages = Math.min(pdf.numPages, 10);
+    const imageBuffers: Uint8Array[] = [];
+    
+    for (let i = 1; i <= maxPages; i++) {
+      console.log(`Converting page ${i} of ${maxPages}`);
+      const imageBuffer = await renderPageAsImage(pdfData, i, {
+        scale: 2.0, // High quality for text extraction
+      });
+      imageBuffers.push(imageBuffer);
+    }
+    
+    // Convert buffers to base64 data URLs for OpenAI
+    const base64Images = imageBuffers.map(buffer => {
+      const base64 = btoa(String.fromCharCode(...buffer));
+      return `data:image/png;base64,${base64}`;
     });
     
-    if (response.ok) {
-      const result = await response.json();
-      // Return array of image URLs
-      return result.urls || [];
-    }
-  }
-  
-  // Option 2: Use a free PDF to image conversion service
-  // This is a fallback using a public API (may have limitations)
-  try {
-    // Using api2pdf.com as an example (requires API key)
-    const API2PDF_KEY = Deno.env.get("API2PDF_KEY");
-    if (API2PDF_KEY) {
-      const response = await fetch("https://v2.api2pdf.com/pdf/to/jpg", {
-        method: "POST",
-        headers: {
-          "Authorization": API2PDF_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          url: pdfUrl,
-          inline: true,
-          fileName: "fnol.jpg",
-        }),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        return [result.FileUrl];
-      }
-    }
+    console.log(`Successfully converted ${base64Images.length} pages to images`);
+    return base64Images;
   } catch (error) {
-    console.error("PDF conversion fallback failed:", error);
+    console.error("PDF conversion error:", error);
+    throw new Error(`Failed to convert PDF: ${error.message}`);
   }
-  
-  // Option 3: Simple workaround - treat PDF URL as an image
-  // This won't work well but allows testing
-  console.warn("No PDF conversion API configured. Attempting direct processing.");
-  return [pdfUrl];
 }
 
 /**
@@ -103,17 +75,28 @@ Return a JSON object with this EXACT structure:
   "lossDescription": "description of what happened or null",
   "causeOfLoss": "cause (fire, water, wind, etc) or null",
   "estimatedLoss": "dollar amount or null",
-  "adjustorName": "assigned adjustor or null",
-  "adjustorPhone": "adjustor phone or null",
-  "adjustorEmail": "adjustor email or null",
-  "reportedToPolice": true/false or null,
-  "policeReportNumber": "report number or null",
-  "additionalDetails": "any other important information as a string"
+  "insuranceCompany": "carrier name or null",
+  "adjusterName": "assigned adjuster or null",
+  "contactInfo": {
+    "phone": "phone number or null",
+    "email": "email address or null",
+    "preferredContact": "phone/email/text or null"
+  },
+  "propertyType": "residential/commercial/auto/other or null",
+  "occupancy": "owner/tenant/vacant or null",
+  "mortgagee": "mortgage company name or null",
+  "priorLoss": "yes/no/unknown",
+  "emergencyServices": "yes/no/unknown",
+  "temporaryRepairs": "yes/no/unknown",
+  "documentsAttached": ["list of mentioned attachments"],
+  "specialInstructions": "any special notes or null",
+  "metadata": {
+    "documentPages": ${imageUrls.length},
+    "extractionConfidence": "high/medium/low based on document quality"
+  }
 }
 
-Extract as much information as possible from all pages. If a field is not found, use null.`;
-
-  const userPrompt = "Extract all FNOL information from these document pages. Return ONLY valid JSON.";
+Be thorough and extract every piece of information visible in the document. If information is not present, use null.`;
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -126,24 +109,33 @@ Extract as much information as possible from all pages. If a field is not found,
         model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: [
-            { type: "text", text: userPrompt },
-            ...imageContent
-          ]}
+          { 
+            role: "user", 
+            content: [
+              { type: "text", text: "Extract all FNOL information from these document pages." },
+              ...imageContent
+            ]
+          }
         ],
-        temperature: 0.1,
         max_tokens: 4000,
+        temperature: 0.1,
         response_format: { type: "json_object" }
       }),
     });
-    
+
     if (!response.ok) {
       const error = await response.text();
       throw new Error(`OpenAI API error: ${error}`);
     }
-    
+
     const result = await response.json();
     const extractedData = JSON.parse(result.choices[0].message.content);
+    
+    console.log("Extraction successful:", {
+      claimNumber: extractedData.claimNumber,
+      insuredName: extractedData.insuredName,
+      pages: imageUrls.length
+    });
     
     return extractedData;
   } catch (error) {
@@ -153,149 +145,111 @@ Extract as much information as possible from all pages. If a field is not found,
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 200, headers: CORS });
+  }
+
   try {
-    const payload = await req.json();
-    const { documentId, claimId } = payload;
+    const { pdfUrl, documentId } = await req.json();
     
-    if (!documentId) {
-      throw new Error("documentId is required");
-    }
-    
-    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
-    });
-    
-    // Get document from database
-    const { data: doc, error: docErr } = await sb
-      .from("documents")
-      .select("*")
-      .eq("id", documentId)
-      .single();
-    
-    if (docErr || !doc) {
-      throw new Error(`Document not found: ${docErr?.message}`);
-    }
-    
-    // Update status to processing
-    await sb
-      .from("documents")
-      .update({ extraction_status: "processing" })
-      .eq("id", documentId);
-    
-    // Get public URL for the PDF
-    const { data: pub } = sb.storage
-      .from("documents")
-      .getPublicUrl(doc.storage_path);
-    
-    const pdfUrl = pub?.publicUrl;
     if (!pdfUrl) {
-      throw new Error("Failed to get document URL");
+      return new Response(
+        JSON.stringify({ error: "PDF URL is required" }), 
+        { status: 400, headers: { ...CORS, "Content-Type": "application/json" }}
+      );
+    }
+
+    console.log("Processing FNOL document:", documentId);
+
+    // Initialize Supabase client
+    const authHeader = req.headers.get("Authorization");
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader || "" }},
+    });
+
+    // Update document status to processing
+    if (documentId) {
+      await supabase
+        .from("documents")
+        .update({ 
+          extraction_status: "processing",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", documentId);
+    }
+
+    // Fetch the PDF
+    console.log("Fetching PDF from:", pdfUrl);
+    const pdfResponse = await fetch(pdfUrl);
+    if (!pdfResponse.ok) {
+      throw new Error(`Failed to fetch PDF: ${pdfResponse.status}`);
     }
     
+    const pdfData = new Uint8Array(await pdfResponse.arrayBuffer());
+    console.log(`PDF size: ${pdfData.length} bytes`);
+
     // Convert PDF to images
     console.log("Converting PDF to images...");
-    const imageUrls = await convertPDFToImages(pdfUrl);
-    
-    if (!imageUrls || imageUrls.length === 0) {
-      throw new Error("Failed to convert PDF to images");
-    }
-    
-    console.log(`Converted PDF to ${imageUrls.length} images`);
-    
-    // Extract data from images
-    console.log("Extracting data with OpenAI Vision...");
+    const imageUrls = await convertPDFToImages(pdfData);
+    console.log(`Converted to ${imageUrls.length} images`);
+
+    // Extract data using OpenAI Vision
+    console.log("Extracting FNOL data with OpenAI...");
     const extractedData = await extractFromImages(imageUrls);
-    
+
     // Update document with extracted data
-    await sb
-      .from("documents")
-      .update({
-        extracted_data: extractedData,
-        extraction_status: "completed",
-        extraction_confidence: 0.85,
-      })
-      .eq("id", documentId);
+    if (documentId) {
+      const { error: updateError } = await supabase
+        .from("documents")
+        .update({
+          extracted_data: extractedData,
+          extraction_status: "completed",
+          extraction_confidence: extractedData.metadata?.extractionConfidence || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+
+      if (updateError) {
+        console.error("Failed to update document:", updateError);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: extractedData,
+        pages: imageUrls.length
+      }),
+      { status: 200, headers: { ...CORS, "Content-Type": "application/json" }}
+    );
     
-    // If claimId provided, update or create claim
-    if (claimId || extractedData.claimNumber) {
-      let targetClaimId = claimId;
+  } catch (error) {
+    console.error("FNOL extraction error:", error);
+    
+    // Try to update document status to failed
+    const { documentId } = await req.json().catch(() => ({}));
+    if (documentId) {
+      const authHeader = req.headers.get("Authorization");
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader || "" }},
+      });
       
-      // Create claim if needed
-      if (!targetClaimId && extractedData.claimNumber) {
-        const { data: newClaim, error: claimError } = await sb
-          .from("claims")
-          .insert({
-            claim_number: extractedData.claimNumber,
-            policy_number: extractedData.policyNumber,
-            insured_name: extractedData.insuredName,
-            loss_date: extractedData.lossDate,
-            loss_location: extractedData.lossLocation,
-            loss_description: extractedData.lossDescription,
-            cause_of_loss: extractedData.causeOfLoss,
-            status: "open",
-          })
-          .select()
-          .single();
-        
-        if (!claimError && newClaim) {
-          targetClaimId = newClaim.id;
-        }
-      }
-      
-      // Update claim with extracted data
-      if (targetClaimId) {
-        await sb
-          .from("claims")
-          .update({
-            claim_number: extractedData.claimNumber,
-            policy_number: extractedData.policyNumber,
-            insured_name: extractedData.insuredName,
-            loss_date: extractedData.lossDate,
-            loss_location: extractedData.lossLocation,
-            loss_description: extractedData.lossDescription,
-            cause_of_loss: extractedData.causeOfLoss,
-            adjustor_name: extractedData.adjustorName,
-            adjustor_phone: extractedData.adjustorPhone,
-            adjustor_email: extractedData.adjustorEmail,
-          })
-          .eq("id", targetClaimId);
-      }
+      await supabase
+        .from("documents")
+        .update({
+          extraction_status: "failed",
+          extraction_error: error.message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
     }
     
     return new Response(
       JSON.stringify({ 
-        ok: true, 
-        extractedData,
-        message: `Successfully extracted data from ${imageUrls.length} pages`
+        error: error.message,
+        details: "Check edge function logs for more information"
       }),
-      { headers: { ...CORS, "Content-Type": "application/json" } }
-    );
-    
-  } catch (error: any) {
-    console.error("FNOL extraction error:", error);
-    
-    // Try to update document with error status
-    try {
-      const payload = await req.json().catch(() => ({}));
-      if (payload.documentId) {
-        const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        await sb
-          .from("documents")
-          .update({
-            extraction_status: "error",
-            extraction_error: error.message,
-          })
-          .eq("id", payload.documentId);
-      }
-    } catch (updateError) {
-      console.error("Failed to update error status:", updateError);
-    }
-    
-    return new Response(
-      JSON.stringify({ ok: false, error: error.message }),
-      { status: 500, headers: { ...CORS, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...CORS, "Content-Type": "application/json" }}
     );
   }
 });
