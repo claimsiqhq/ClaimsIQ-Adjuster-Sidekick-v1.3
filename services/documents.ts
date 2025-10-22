@@ -1,5 +1,7 @@
 // services/documents.ts
 import { supabase } from '@/utils/supabase';
+import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
 
 export type DocumentType = 'fnol' | 'estimate' | 'photo' | 'report' | 'invoice' | 'correspondence' | 'other';
 export type ExtractionStatus = 'pending' | 'processing' | 'completed' | 'error';
@@ -36,14 +38,22 @@ export async function uploadDocument(
     const ext = fileName.split('.').pop() || 'pdf';
     const storagePath = `documents/${timestamp}_${fileName}`;
 
-    // Upload file to storage
-    const response = await fetch(fileUri);
-    const blob = await response.blob();
+    // Read file as base64 using Expo FileSystem
+    const base64 = await FileSystem.readAsStringAsync(fileUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    // Convert base64 to ArrayBuffer for Supabase storage
+    const arrayBuffer = decode(base64);
+    
+    // Get file info for size
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    const fileSize = (fileInfo as any).size || 0;
     
     const { error: uploadError } = await supabase.storage
       .from('documents')
-      .upload(storagePath, blob, {
-        contentType: blob.type || 'application/pdf',
+      .upload(storagePath, arrayBuffer, {
+        contentType: 'application/pdf',
         upsert: false,
       });
 
@@ -57,8 +67,8 @@ export async function uploadDocument(
         document_type: documentType,
         file_name: fileName,
         storage_path: storagePath,
-        mime_type: blob.type,
-        file_size_bytes: blob.size,
+        mime_type: 'application/pdf',
+        file_size_bytes: fileSize,
         extraction_status: 'pending',
       })
       .select('*')

@@ -1,7 +1,7 @@
 // services/optimize.ts
 // AI-powered daily optimization service
 
-import { supabase } from '../config/supabase';
+import { supabase } from '@/utils/supabase';
 
 export interface DailyOptimization {
   id: string;
