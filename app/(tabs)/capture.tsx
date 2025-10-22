@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { invokeAnnotation } from '@/services/annotate';
 import { getOrCreateClaimByNumber, listClaimsLike } from '@/services/claims';
 import { getSession } from '@/services/auth';
+import { supabase } from '@/utils/supabase';
 
 type GridItem = MediaItem & { thumb_uri?: string };
 
@@ -140,6 +141,37 @@ export default function CaptureScreen() {
           {selecting && selected.size > 0 ? (
             <View style={styles.toolbar}>
               <Pressable style={styles.toolBtn} onPress={() => setClaimPickerOpen(true)}><Text style={styles.toolBtnTxt}>Assign to Claim</Text></Pressable>
+              <Pressable style={[styles.toolBtn, { backgroundColor: colors.error }]} onPress={async () => {
+                Alert.alert(
+                  'Delete Photos',
+                  `Delete ${selected.size} photo${selected.size > 1 ? 's' : ''}? This cannot be undone.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Delete', 
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          // Delete from Supabase
+                          const { error } = await supabase
+                            .from('media')
+                            .delete()
+                            .in('id', Array.from(selected));
+                          
+                          if (error) throw error;
+                          
+                          // Update local state
+                          setItems(prev => prev.filter(item => !selected.has(item.id)));
+                          clearSelection();
+                          Alert.alert('Success', `Deleted ${selected.size} photo${selected.size > 1 ? 's' : ''}`);
+                        } catch (error: any) {
+                          Alert.alert('Delete Failed', error.message || 'Failed to delete photos');
+                        }
+                      }
+                    }
+                  ]
+                );
+              }}><Text style={styles.toolBtnTxt}>Delete</Text></Pressable>
               <Pressable style={[styles.toolBtn, { backgroundColor: colors.gold }]} onPress={clearSelection}><Text style={[styles.toolBtnTxt, { color: colors.core }]}>Cancel</Text></Pressable>
             </View>
           ) : (
