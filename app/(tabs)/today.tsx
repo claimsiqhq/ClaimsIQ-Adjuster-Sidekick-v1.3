@@ -10,7 +10,8 @@ import {
   ActivityIndicator, 
   Pressable, 
   RefreshControl,
-  Dimensions 
+  Dimensions,
+  SafeAreaView 
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Header from '@/components/Header';
@@ -145,16 +146,17 @@ export default function TodayScreen() {
   };
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <Header 
-        title="Daily Overview" 
-        subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} 
-      />
+    <SafeAreaView style={styles.safeContainer}>
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <Header 
+          title="Daily Overview" 
+          subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} 
+        />
 
       {/* Quick Stats */}
       <View style={styles.statsRow}>
@@ -422,14 +424,18 @@ export default function TodayScreen() {
           <Text style={[styles.actionButtonText, { color: colors.core }]}>📄 Upload FNOL</Text>
         </Pressable>
       </Section>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeContainer: {
+    flex: 1,
+    backgroundColor: colors.bgSoft
+  },
   container: { 
-    flex: 1, 
-    backgroundColor: colors.bgSoft 
+    flex: 1
   },
   center: {
     flex: 1,
