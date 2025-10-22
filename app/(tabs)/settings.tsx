@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Switch, Pressable, SafeAreaView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
@@ -73,7 +73,7 @@ function UnitsRow() {
 export default function SettingsScreen() {
   const router = useRouter();
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Header title="Settings" subtitle="Accounts, data, preferences." />
       <Section title="Sync Status">
         <SyncStatus />
@@ -102,7 +102,7 @@ export default function SettingsScreen() {
           <Text style={[styles.linkTxt, { color: colors.core }]}>Sign Out</Text>
         </Pressable>
       </Section>
-    </View>
+    </SafeAreaView>
   );
 }
 

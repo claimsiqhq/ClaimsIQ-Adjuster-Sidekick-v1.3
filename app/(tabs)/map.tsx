@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView, SafeAreaView } from "react-native";
 // import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';  // Temporarily disabled
 import Header from "@/components/Header";
 import Section from "@/components/Section";
@@ -136,7 +136,7 @@ export default function MapScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Header title="Map & Route" subtitle="Claims locations and routing" />
       
       <View style={styles.mapContainer}>
@@ -213,7 +213,7 @@ export default function MapScreen() {
           </Pressable>
         </Section>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
