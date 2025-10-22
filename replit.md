@@ -1,8 +1,14 @@
-# ClaimsiQ Sidekick
+# ClaimsIQ Sidekick
 
 ## Overview
 
-ClaimsiQ Sidekick is a native iOS insurance claims inspection application built with React Native and Expo. The app enables field adjusters to capture and annotate photos with AI-powered damage detection, manage claims with offline-first architecture, and streamline the entire claims inspection workflow. The system leverages OpenAI Vision API for intelligent damage analysis and uses Supabase as the backend for data storage, authentication, and file management.
+ClaimsIQ Sidekick is a production-ready iOS insurance claims inspection application built with React Native and Expo. The app enables field adjusters to capture and annotate photos with AI-powered damage detection, extract data from FNOL PDFs with automatic conversion, manage claims with offline-first architecture, and streamline the entire claims inspection workflow. The system leverages OpenAI Vision API for intelligent damage analysis and uses Supabase as the backend for data storage, authentication, and file management.
+
+## Current Status (October 22, 2025)
+
+**✅ Working**: UI/UX for all tabs, offline sync, authentication, database schema  
+**⚠️ Needs Deployment**: Edge functions for AI features (camera, PDF extraction)  
+**🔴 Disabled**: LiDAR scanning (crashes), Map view (build errors)
 
 ## User Preferences
 
@@ -82,9 +88,9 @@ Preferred communication style: Simple, everyday language.
 
 **Supabase**: PostgreSQL database, authentication, storage buckets, and edge functions. Project URL: `https://lyppkkpawalcchbgbkxg.supabase.co`
 
-**OpenAI API**: GPT-4 Vision for damage detection and data extraction. API key configured in Supabase Edge Function secrets.
+**OpenAI API**: GPT-4o Vision for damage detection and data extraction. API key must be configured in Supabase Edge Function secrets (NOT YET DEPLOYED).
 
-**Weatherbit.io**: Weather data API for current conditions, forecasts, and historical data. API key configured via environment variable.
+**Weatherbit.io**: Weather data API for current conditions, forecasts, and historical data. API key configured via environment variable (OPTIONAL).
 
 ### Key NPM Packages
 
