@@ -199,30 +199,194 @@ export default function TodayScreen() {
       {(WEATHER_API_CONFIGURED || weatherError) && (
         <Section title="Weather Conditions">
           {weather && (
-            <View style={styles.weatherCard}>
-              <View style={styles.weatherMain}>
-                <Text style={styles.weatherTemp}>
-                  {Math.round(weather.temperature)}°{weather.units === 'metric' ? 'C' : 'F'}
-                </Text>
-                <Text style={styles.weatherCondition}>{weather.condition}</Text>
-                {weather.location && (
-                  <Text style={styles.weatherLocation}>📍 {weather.location}</Text>
+            <>
+              {/* Main Weather Card */}
+              <View style={styles.weatherCard}>
+                <View style={styles.weatherMain}>
+                  <View style={styles.weatherHeader}>
+                    <View>
+                      <Text style={styles.weatherTemp}>
+                        {Math.round(weather.temperature)}°{weather.units === 'metric' ? 'C' : 'F'}
+                      </Text>
+                      <Text style={styles.weatherFeelsLike}>
+                        Feels like {Math.round(weather.feelsLike)}°
+                      </Text>
+                    </View>
+                    {weather.partOfDay && (
+                      <Text style={styles.dayNightIcon}>
+                        {weather.partOfDay === 'day' ? '☀️' : '🌙'}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={styles.weatherCondition}>{weather.condition}</Text>
+                  {weather.location && (
+                    <Text style={styles.weatherLocation}>📍 {weather.location}</Text>
+                  )}
+                  {weather.observationTime && (
+                    <Text style={styles.weatherUpdate}>Updated: {weather.observationTime}</Text>
+                  )}
+                </View>
+
+                {/* Safety Assessment */}
+                {isSafeForRoofInspection(weather).safe ? (
+                  <View style={styles.safetyBadge}>
+                    <Text style={styles.safetyText}>✓ Safe for roof work</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.safetyBadge, { backgroundColor: '#FEE2E2' }]}>
+                    <Text style={[styles.safetyText, { color: '#DC2626' }]}>
+                      ⚠️ {isSafeForRoofInspection(weather).reason}
+                    </Text>
+                  </View>
                 )}
-                <Text style={styles.weatherWind}>
-                  Wind: {Math.round(weather.windSpeed)} {weather.units === 'metric' ? 'km/h' : 'mph'}
-                </Text>
               </View>
 
-              {isSafeForRoofInspection(weather).safe ? (
-                <View style={styles.safetyBadge}>
-                  <Text style={styles.safetyText}>✓ Safe for roof work</Text>
+              {/* Detailed Weather Grid */}
+              <View style={styles.weatherGrid}>
+                {/* Wind Details */}
+                <View style={styles.weatherTile}>
+                  <Text style={styles.tileIcon}>💨</Text>
+                  <Text style={styles.tileTitle}>Wind</Text>
+                  <Text style={styles.tileValue}>
+                    {Math.round(weather.windSpeed)} {weather.units === 'metric' ? 'km/h' : 'mph'}
+                  </Text>
+                  <Text style={styles.tileSubtext}>{weather.windDirection}</Text>
+                  {weather.windGust && (
+                    <Text style={styles.tileExtra}>
+                      Gusts: {Math.round(weather.windGust)} {weather.units === 'metric' ? 'km/h' : 'mph'}
+                    </Text>
+                  )}
                 </View>
-              ) : (
-                <View style={[styles.safetyBadge, { backgroundColor: '#FEE2E2' }]}>
-                  <Text style={[styles.safetyText, { color: '#DC2626' }]}>⚠️ {isSafeForRoofInspection(weather).reason}</Text>
+
+                {/* Humidity */}
+                <View style={styles.weatherTile}>
+                  <Text style={styles.tileIcon}>💧</Text>
+                  <Text style={styles.tileTitle}>Humidity</Text>
+                  <Text style={styles.tileValue}>{weather.humidity}%</Text>
+                  {weather.dewPoint !== undefined && (
+                    <Text style={styles.tileSubtext}>
+                      Dew: {Math.round(weather.dewPoint)}°
+                    </Text>
+                  )}
+                </View>
+
+                {/* UV Index */}
+                {weather.uvIndex !== undefined && (
+                  <View style={styles.weatherTile}>
+                    <Text style={styles.tileIcon}>☀️</Text>
+                    <Text style={styles.tileTitle}>UV Index</Text>
+                    <Text style={[
+                      styles.tileValue,
+                      weather.uvIndex > 7 && { color: colors.error }
+                    ]}>
+                      {Math.round(weather.uvIndex)}
+                    </Text>
+                    <Text style={styles.tileSubtext}>
+                      {weather.uvIndex <= 2 ? 'Low' :
+                       weather.uvIndex <= 5 ? 'Moderate' :
+                       weather.uvIndex <= 7 ? 'High' :
+                       weather.uvIndex <= 10 ? 'Very High' : 'Extreme'}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Visibility */}
+                {weather.visibility !== undefined && (
+                  <View style={styles.weatherTile}>
+                    <Text style={styles.tileIcon}>👁️</Text>
+                    <Text style={styles.tileTitle}>Visibility</Text>
+                    <Text style={styles.tileValue}>
+                      {weather.visibility < 10 ? weather.visibility.toFixed(1) : Math.round(weather.visibility)}
+                    </Text>
+                    <Text style={styles.tileSubtext}>
+                      {weather.units === 'metric' ? 'km' : 'miles'}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Pressure */}
+                {weather.pressure && (
+                  <View style={styles.weatherTile}>
+                    <Text style={styles.tileIcon}>🔵</Text>
+                    <Text style={styles.tileTitle}>Pressure</Text>
+                    <Text style={styles.tileValue}>{Math.round(weather.pressure)}</Text>
+                    <Text style={styles.tileSubtext}>mb</Text>
+                  </View>
+                )}
+
+                {/* Cloud Coverage */}
+                {weather.cloudCoverage !== undefined && (
+                  <View style={styles.weatherTile}>
+                    <Text style={styles.tileIcon}>☁️</Text>
+                    <Text style={styles.tileTitle}>Clouds</Text>
+                    <Text style={styles.tileValue}>{weather.cloudCoverage}%</Text>
+                    <Text style={styles.tileSubtext}>
+                      {weather.cloudCoverage === 0 ? 'Clear' :
+                       weather.cloudCoverage <= 25 ? 'Few' :
+                       weather.cloudCoverage <= 50 ? 'Scattered' :
+                       weather.cloudCoverage <= 80 ? 'Broken' : 'Overcast'}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Air Quality */}
+                {weather.airQualityIndex && (
+                  <View style={styles.weatherTile}>
+                    <Text style={styles.tileIcon}>🌫️</Text>
+                    <Text style={styles.tileTitle}>Air Quality</Text>
+                    <Text style={[
+                      styles.tileValue,
+                      weather.airQualityIndex > 100 && { color: colors.warning },
+                      weather.airQualityIndex > 150 && { color: colors.error }
+                    ]}>
+                      {weather.airQualityIndex}
+                    </Text>
+                    <Text style={styles.tileSubtext}>
+                      {weather.airQualityIndex <= 50 ? 'Good' :
+                       weather.airQualityIndex <= 100 ? 'Moderate' :
+                       weather.airQualityIndex <= 150 ? 'Unhealthy*' :
+                       weather.airQualityIndex <= 200 ? 'Unhealthy' :
+                       weather.airQualityIndex <= 300 ? 'Very Unhealthy' : 'Hazardous'}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Precipitation */}
+                {(weather.precipitation !== undefined || weather.snow !== undefined) && (
+                  <View style={styles.weatherTile}>
+                    <Text style={styles.tileIcon}>🌧️</Text>
+                    <Text style={styles.tileTitle}>Precip</Text>
+                    <Text style={styles.tileValue}>
+                      {weather.precipitation || 0}
+                    </Text>
+                    <Text style={styles.tileSubtext}>mm/hr</Text>
+                    {weather.snow ? (
+                      <Text style={styles.tileExtra}>Snow: {weather.snow} mm/hr</Text>
+                    ) : null}
+                  </View>
+                )}
+              </View>
+
+              {/* Sun Times */}
+              {(weather.sunrise || weather.sunset) && (
+                <View style={styles.sunTimesCard}>
+                  {weather.sunrise && (
+                    <View style={styles.sunTimeItem}>
+                      <Text style={styles.sunIcon}>🌅</Text>
+                      <Text style={styles.sunLabel}>Sunrise</Text>
+                      <Text style={styles.sunTime}>{weather.sunrise}</Text>
+                    </View>
+                  )}
+                  {weather.sunset && (
+                    <View style={styles.sunTimeItem}>
+                      <Text style={styles.sunIcon}>🌇</Text>
+                      <Text style={styles.sunLabel}>Sunset</Text>
+                      <Text style={styles.sunTime}>{weather.sunset}</Text>
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
+            </>
           )}
 
           {!weather && weatherError && (
@@ -372,6 +536,101 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#5F6771',
     marginTop: 4,
+  },
+  weatherHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  weatherFeelsLike: {
+    fontSize: 14,
+    color: '#5F6771',
+    marginTop: 4,
+  },
+  weatherUpdate: {
+    fontSize: 11,
+    color: '#9AA0A6',
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  dayNightIcon: {
+    fontSize: 36,
+  },
+  weatherGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  weatherTile: {
+    backgroundColor: colors.white,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    width: '31%',
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  tileIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  tileTitle: {
+    fontSize: 11,
+    color: '#9AA0A6',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  tileValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.core,
+  },
+  tileSubtext: {
+    fontSize: 12,
+    color: '#5F6771',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  tileExtra: {
+    fontSize: 10,
+    color: '#9AA0A6',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  sunTimesCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    marginTop: 12,
+    justifyContent: 'space-around',
+  },
+  sunTimeItem: {
+    alignItems: 'center',
+  },
+  sunIcon: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  sunLabel: {
+    fontSize: 11,
+    color: '#9AA0A6',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  sunTime: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.core,
   },
   safetyBadge: {
     backgroundColor: colors.successBg,
