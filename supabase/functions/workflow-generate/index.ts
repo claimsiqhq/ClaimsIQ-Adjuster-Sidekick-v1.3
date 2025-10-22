@@ -81,33 +81,47 @@ Deno.serve(async (req) => {
     
     const NOTES = claim.loss_description || "";
 
-    // 3) Get workflow generation prompts
-    const { data: pSys } = await sb
+    // 3) Get workflow generation prompt (SINGLE PROMPT)
+    const { data: promptData } = await sb
       .from("app_prompts")
       .select("template")
-      .eq("key", "workflow_generate_system")
+      .eq("key", "workflow_generate")
       .eq("is_active", true)
       .limit(1)
       .maybeSingle();
 
-    const { data: pUser } = await sb
-      .from("app_prompts")
-      .select("template")
-      .eq("key", "workflow_generate_user")
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
+    // Default single prompt combining instructions and task
+    const defaultPrompt = `You are an expert insurance inspection workflow generator.
 
-    const systemPrompt = pSys?.template || 
-      `You produce an efficient, stepwise inspection workflow as JSON array of steps. Each step has: id, title, kind (photo|scan|doc|note|measure), instructions[], evidence_rules{min_count, must_tags[], gps_required}, validation, next[]. Balance completeness with site efficiency. Return ONLY JSON array.`;
+Generate an efficient, stepwise inspection workflow for this claim:
+- Loss Type: {{LOSS_TYPE}}
+- Property Type: {{DWELLING}}
+- Jurisdiction: {{JURISDICTION}}
+- Notes: {{NOTES}}
 
-    const userPrompt = pUser?.template || 
-      `Generate inspection steps for: loss_type={{LOSS_TYPE}}, dwelling={{DWELLING}}, jurisdiction={{JURISDICTION}}, notes={{NOTES}}. Return JSON array only.`;
+Create a JSON array of inspection steps. Each step should have:
+{
+  "id": "unique_id",
+  "title": "step title",
+  "kind": "photo|scan|doc|note|measure",
+  "instructions": ["detailed instruction 1", "instruction 2"],
+  "evidence_rules": {
+    "min_count": number of required items,
+    "must_tags": ["required", "tags"],
+    "gps_required": true/false
+  },
+  "validation": {},
+  "next": ["next_step_id"]
+}
 
-    const sysText = render(systemPrompt, { LOSS_TYPE, DWELLING, JURISDICTION, NOTES });
-    const usrText = render(userPrompt, { LOSS_TYPE, DWELLING, JURISDICTION, NOTES });
+Balance completeness with efficiency. Include safety checks, documentation requirements, and thorough photo coverage of damage.
 
-    // 4) Call OpenAI
+Return ONLY a JSON array of steps, no explanatory text.`;
+
+    const promptTemplate = promptData?.template || defaultPrompt;
+    const workflowPrompt = render(promptTemplate, { LOSS_TYPE, DWELLING, JURISDICTION, NOTES });
+
+    // 4) Call OpenAI with SINGLE prompt
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -117,8 +131,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "gpt-4",
         messages: [
-          { role: "system", content: sysText },
-          { role: "user", content: usrText },
+          { role: "user", content: workflowPrompt }
         ],
         response_format: { type: "json_object" },
         temperature: 0.3,
@@ -193,4 +206,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
