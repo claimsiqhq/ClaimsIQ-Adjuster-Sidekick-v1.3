@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView, SafeAreaView } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView, SafeAreaView, Pressable } from 'react-native';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { getMediaById } from '@/services/media';
 import { colors } from '@/theme/colors';
@@ -59,6 +59,7 @@ const AnnotationDisplay = ({ annotation }: { annotation: Annotation }) => (
 
 export default function PhotoDetailScreen() {
     const { id } = useLocalSearchParams();
+    const router = useRouter();
     const [media, setMedia] = useState<MediaItem | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -90,8 +91,18 @@ export default function PhotoDetailScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
+            <Stack.Screen options={{ title: 'Photo Details' }} />
+            
+            {/* Header with Back Button */}
+            <View style={styles.headerBar}>
+                <Pressable style={styles.backButton} onPress={() => router.back()}>
+                    <Text style={styles.backButtonText}>← Back</Text>
+                </Pressable>
+                <Text style={styles.headerTitle}>Photo Details</Text>
+                <View style={{ width: 60 }} />
+            </View>
+            
             <ScrollView style={styles.container}>
-                <Stack.Screen options={{ title: 'Photo Details' }} />
                 <Image source={{ uri: media.public_url }} style={styles.image} />
             
             {media.status === 'annotated' && media.annotations ? (
@@ -120,51 +131,69 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.bg,
     },
+    headerBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.white,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.line,
+    },
+    backButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: colors.light,
+        borderRadius: 8,
+    },
+    backButtonText: {
+        color: colors.primary,
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.core,
+    },
     image: {
         width: '100%',
         height: 400,
         resizeMode: 'cover',
     },
     annotationContainer: {
-        padding: 20,
+        padding: 16,
+        backgroundColor: colors.white,
     },
     header: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: 'bold',
+        marginBottom: 16,
         color: colors.text,
-        marginBottom: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-        paddingBottom: 10,
     },
     infoRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         marginBottom: 12,
     },
     detailsRow: {
-        marginBottom: 12,
+        marginTop: 12,
     },
     label: {
-        fontSize: 16,
         fontWeight: '600',
-        color: colors.textSoft,
-        flex: 1,
+        width: 120,
+        color: colors.text,
     },
     value: {
-        fontSize: 16,
-        color: colors.text,
-        flex: 2,
-        textAlign: 'right',
+        flex: 1,
+        color: colors.textLight,
     },
-    pendingContainer:{
+    pendingContainer: {
         padding: 20,
         alignItems: 'center',
-        justifyContent: 'center',
     },
     pendingText: {
         marginTop: 10,
-        fontSize: 16,
-        color: colors.textSoft,
-    }
+        color: colors.textLight,
+    },
 });

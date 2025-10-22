@@ -10,7 +10,52 @@ import { getSession } from '@/services/auth';
 
 const SETTINGS_KEYS = {
   UNITS: 'settings_units', // 'metric' or 'imperial'
+  DARK_MODE: 'settings_dark_mode',
+  WIFI_ONLY: 'settings_wifi_only',
+  EMBED_ANNOTATIONS: 'settings_embed_annotations',
+  AUTO_SAVE_PHOTOS: 'settings_auto_save_photos',
+  HIGH_QUALITY_PHOTOS: 'settings_high_quality_photos',
 };
+
+function ToggleRow({ 
+  label, 
+  description, 
+  storageKey, 
+  defaultValue = false 
+}: { 
+  label: string; 
+  description?: string;
+  storageKey: string; 
+  defaultValue?: boolean;
+}) {
+  const [value, setValue] = useState(defaultValue);
+
+  useEffect(() => {
+    AsyncStorage.getItem(storageKey).then((stored) => {
+      if (stored !== null) setValue(stored === 'true');
+    });
+  }, [storageKey]);
+
+  const handleToggle = async (newValue: boolean) => {
+    setValue(newValue);
+    await AsyncStorage.setItem(storageKey, String(newValue));
+  };
+
+  return (
+    <View style={styles.toggleRow}>
+      <View style={styles.toggleLeft}>
+        <Text style={styles.toggleLabel}>{label}</Text>
+        {description && <Text style={styles.toggleDescription}>{description}</Text>}
+      </View>
+      <Switch 
+        value={value} 
+        onValueChange={handleToggle}
+        trackColor={{ false: colors.line, true: colors.primary }}
+        thumbColor={colors.white}
+      />
+    </View>
+  );
+}
 
 function UnitsToggle() {
   const [units, setUnits] = useState<'metric' | 'imperial'>('imperial');
@@ -35,7 +80,7 @@ function UnitsToggle() {
   return (
     <Pressable style={styles.unitsCard} onPress={handleToggle}>
       <View style={styles.unitsLeft}>
-        <Text style={styles.settingTitle}>Temperature & Speed</Text>
+        <Text style={styles.settingTitle}>Temperature & Speed Units</Text>
         <Text style={styles.settingValue}>{units === 'imperial' ? 'Fahrenheit / mph' : 'Celsius / km/h'}</Text>
       </View>
       <View style={styles.unitsPill}>
@@ -101,12 +146,50 @@ export default function SettingsScreen() {
           <AccountCard />
         </Section>
 
-        {/* Preferences */}
-        <Section title="Preferences">
+        {/* Units Preference */}
+        <Section title="Display">
           <UnitsToggle />
+          <ToggleRow 
+            label="Dark Mode" 
+            description="Use dark theme throughout the app"
+            storageKey={SETTINGS_KEYS.DARK_MODE} 
+            defaultValue={false}
+          />
         </Section>
         
-        {/* Admin Tools - Only show to admins */}
+        {/* Upload Preferences */}
+        <Section title="Upload & Sync">
+          <ToggleRow 
+            label="Wi-Fi Only Uploads" 
+            description="Only upload photos when connected to Wi-Fi"
+            storageKey={SETTINGS_KEYS.WIFI_ONLY} 
+            defaultValue={true}
+          />
+          <ToggleRow 
+            label="Auto-Save to Gallery" 
+            description="Save captured photos to device gallery"
+            storageKey={SETTINGS_KEYS.AUTO_SAVE_PHOTOS} 
+            defaultValue={true}
+          />
+          <ToggleRow 
+            label="High Quality Photos" 
+            description="Use maximum quality (larger file sizes)"
+            storageKey={SETTINGS_KEYS.HIGH_QUALITY_PHOTOS} 
+            defaultValue={false}
+          />
+        </Section>
+        
+        {/* Report Preferences */}
+        <Section title="Reports & Export">
+          <ToggleRow 
+            label="Embed AI Annotations" 
+            description="Include AI damage detections in PDF reports"
+            storageKey={SETTINGS_KEYS.EMBED_ANNOTATIONS} 
+            defaultValue={true}
+          />
+        </Section>
+        
+        {/* Admin Tools */}
         <Section title="Admin Tools">
           <Pressable style={styles.menuItem} onPress={() => router.push('/admin/prompts')}>
             <Text style={styles.menuIcon}>🤖</Text>
@@ -213,6 +296,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     fontWeight: '500',
+  },
+  
+  // Toggle Rows
+  toggleRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
+  toggleLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.core,
+    marginBottom: 2,
+  },
+  toggleDescription: {
+    fontSize: 13,
+    color: colors.textSoft,
+    lineHeight: 18,
   },
   
   // Units Card
