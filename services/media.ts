@@ -1,6 +1,7 @@
 import { supabase } from '@/utils/supabase';
 import { invokeAnnotation } from '@/services/annotate';
 import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 
 export type MediaType = 'photo' | 'lidar_room';
 export type MediaStatus = 'pending' | 'uploading' | 'uploaded' | 'annotating' | 'done' | 'error';
@@ -68,18 +69,12 @@ export async function uploadPhotoToStorage(localUri: string, path: string): Prom
       encoding: FileSystem.EncodingType.Base64,
     });
     
-    // Convert base64 to blob for Supabase storage
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+    // Convert base64 to ArrayBuffer using base64-arraybuffer package
+    const arrayBuffer = decode(base64);
     
     const { error } = await supabase.storage
       .from('media')
-      .upload(path, blob, { 
+      .upload(path, arrayBuffer, { 
         contentType: 'image/jpeg', 
         upsert: false 
       });
@@ -115,11 +110,11 @@ export async function uploadMedia(base64Data: string, claimId: string, userId: s
     const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
     const path = `photos/${filename}`;
     
-    // Convert base64 to blob and upload to storage
-    const blob = await fetch(`data:image/jpeg;base64,${base64Data}`).then(r => r.blob());
+    // Convert base64 to ArrayBuffer for React Native
+    const arrayBuffer = decode(base64Data);
     const { error: uploadError } = await supabase.storage
       .from('media')
-      .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      .upload(path, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
     
     if (uploadError) throw uploadError;
     
