@@ -1,421 +1,446 @@
-import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator } from "react-native";
-import Header from "@/components/Header";
-import Section from "@/components/Section";
-import { colors } from "@/theme/colors";
-import { supabase } from "@/utils/supabase";
-import { useRouter } from "expo-router";
-import { getCurrentLocation } from "@/services/location";
-import { getWeather, getWeatherAlerts, isSafeForRoofInspection, Weather, WeatherAlert } from "@/services/weather";
+// app/(tabs)/today.tsx
+// AI-Powered Daily Overview Dashboard
 
-interface ClaimSummary {
-  id: string;
-  claim_number: string | null;
-  status: string | null;
-  created_at: string;
-}
+import { useState, useEffect, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  ActivityIndicator, 
+  Pressable, 
+  RefreshControl,
+  Dimensions 
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import Header from '@/components/Header';
+import Section from '@/components/Section';
+import { colors } from '@/theme/colors';
+import { getCurrentLocation } from '@/services/location';
+import { getWeather, Weather, WeatherAlert, getWeatherAlerts, isSafeForRoofInspection } from '@/services/weather';
+import { 
+  generateDailyOptimization, 
+  getDailyOptimization, 
+  getClaimsWithSLA,
+  DailyOptimization 
+} from '@/services/optimize';
 
-const WEATHER_API_CONFIGURED = Boolean(process.env.EXPO_PUBLIC_WEATHER_API_KEY);
+const { width: screenWidth } = Dimensions.get('window');
+const WEATHER_API_CONFIGURED = !!process.env.EXPO_PUBLIC_WEATHER_API_KEY;
 
 export default function TodayScreen() {
   const router = useRouter();
-  const [claims, setClaims] = useState<ClaimSummary[]>([]);
-  const [stats, setStats] = useState({ total: 0, inProgress: 0, dueToday: 0 });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlert[]>([]);
   const [weatherError, setWeatherError] = useState<string | null>(null);
+  const [claimsWithSLA, setClaimsWithSLA] = useState<any[]>([]);
+  const [optimization, setOptimization] = useState<DailyOptimization | null>(null);
+  const [generatingAI, setGeneratingAI] = useState(false);
 
   useEffect(() => {
-    loadTodayData();
+    loadDashboard();
   }, []);
 
-  async function loadTodayData() {
+  async function loadDashboard() {
     try {
       setLoading(true);
-      
-      // Load weather for current location
-      setWeatherError(null);
-      if (!WEATHER_API_CONFIGURED) {
-        setWeather(null);
-        setWeatherAlerts([]);
-        setWeatherError('Add EXPO_PUBLIC_WEATHER_API_KEY to enable weather insights on the Today screen.');
-      } else {
-        try {
-          const location = await getCurrentLocation();
-          const currentWeather = await getWeather(location.latitude, location.longitude);
-          const alerts = await getWeatherAlerts(location.latitude, location.longitude);
 
-          if (currentWeather) {
-            setWeather(currentWeather);
-            setWeatherError(null);
-          } else {
-            setWeather(null);
-            setWeatherError('Weather data is temporarily unavailable. Please try again later.');
-          }
+      // Load all data in parallel
+      const [weatherData, claims, dailyOpt] = await Promise.all([
+        loadWeatherData(),
+        getClaimsWithSLA(),
+        getDailyOptimization()
+      ]);
 
-          setWeatherAlerts(alerts);
-        } catch (error) {
-          console.log('Weather fetch failed:', error);
-          setWeather(null);
-          setWeatherAlerts([]);
-          setWeatherError('Unable to fetch weather for your current location.');
-        }
+      setClaimsWithSLA(claims);
+      setOptimization(dailyOpt);
+
+      // If no optimization exists and there are claims, generate one
+      if (!dailyOpt && claims.length > 0) {
+        await generateOptimization();
       }
-      
-      // Check if Supabase is configured
-      if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY) {
-        console.error('Supabase not configured - skipping claims data');
-        setClaims([]);
-        setStats({ total: 0, inProgress: 0, dueToday: 0 });
-        return;
-      }
-      
-      // Load all claims
-      const { data: allClaims, error } = await supabase
-        .from('claims')
-        .select('id, claim_number, status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      
-      if (error) throw error;
-      
-      const claimsList = allClaims || [];
-      setClaims(claimsList);
-      
-      // Calculate stats
-      const inProgress = claimsList.filter(c => c.status === 'in_progress').length;
-      
-      // For "due today", check claims created in last 7 days without 'completed' status
-      const today = new Date();
-      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const dueToday = claimsList.filter(c => {
-        const createdDate = new Date(c.created_at);
-        return createdDate >= sevenDaysAgo && c.status !== 'completed' && c.status !== 'closed';
-      }).length;
-      
-      setStats({
-        total: claimsList.length,
-        inProgress,
-        dueToday,
-      });
-    } catch (error: any) {
-      console.error('Error loading today data:', error);
-      // If it's a Supabase configuration error, show a helpful message
-      if (error.message?.includes('Supabase is not configured')) {
-        setClaims([]);
-        setStats({ total: 0, inProgress: 0, dueToday: 0 });
-      }
+    } catch (error) {
+      console.error('Dashboard load error:', error);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadWeatherData() {
+    if (!WEATHER_API_CONFIGURED) {
+      setWeatherError('Add EXPO_PUBLIC_WEATHER_API_KEY to enable weather insights.');
+      return null;
+    }
+
+    try {
+      const location = await getCurrentLocation();
+      const currentWeather = await getWeather(location.latitude, location.longitude);
+      const alerts = await getWeatherAlerts(location.latitude, location.longitude);
+
+      setWeather(currentWeather);
+      setWeatherAlerts(alerts);
+      setWeatherError(null);
+
+      return currentWeather;
+    } catch (error) {
+      console.log('Weather fetch failed:', error);
+      setWeatherError('Unable to fetch weather for your location.');
+      return null;
+    }
+  }
+
+  async function generateOptimization() {
+    setGeneratingAI(true);
+    try {
+      const newOpt = await generateDailyOptimization();
+      if (newOpt) {
+        setOptimization(newOpt);
+      }
+    } catch (error) {
+      console.error('Failed to generate optimization:', error);
+    } finally {
+      setGeneratingAI(false);
+    }
+  }
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await loadDashboard();
+    setRefreshing(false);
+  }
+
+  function getSLAColor(status: string) {
+    switch (status) {
+      case 'overdue': return colors.error;
+      case 'critical': return '#FF6B6B';
+      case 'warning': return colors.warning;
+      default: return colors.success;
+    }
+  }
+
+  function getProgressRingColor(percent: number) {
+    if (percent < 33) return '#FF6B6B';
+    if (percent < 66) return colors.warning;
+    return colors.success;
   }
 
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading your daily overview...</Text>
       </View>
     );
   }
 
-  // Get in-progress and recent claims for watchlist
-  const watchlistClaims = claims
-    .filter(c => c.status === 'in_progress' || c.status === 'open')
-    .slice(0, 5);
+  const stats = {
+    total: claimsWithSLA.length,
+    overdue: claimsWithSLA.filter(c => c.sla_status === 'overdue').length,
+    today: claimsWithSLA.filter(c => c.sla_status === 'critical' || c.sla_status === 'warning').length,
+    avgProgress: claimsWithSLA.length > 0 
+      ? Math.round(claimsWithSLA.reduce((acc, c) => acc + c.progress_percent, 0) / claimsWithSLA.length)
+      : 0
+  };
 
   return (
-    <ScrollView style={styles.container} contentInsetAdjustmentBehavior="automatic">
-      <Header title="Today" subtitle="Your daily overview and priority claims." />
-      
-      <Section title="Quick Stats">
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{stats.total}</Text>
-            <Text style={styles.statLabel}>Total Claims</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{stats.inProgress}</Text>
-            <Text style={styles.statLabel}>In Progress</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{stats.dueToday}</Text>
-            <Text style={styles.statLabel}>Need Attention</Text>
-          </View>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <Header 
+        title="Daily Overview" 
+        subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} 
+      />
+
+      {/* Quick Stats */}
+      <View style={styles.statsRow}>
+        <View style={[styles.statCard, stats.overdue > 0 && styles.statCardDanger]}>
+          <Text style={styles.statValue}>{stats.overdue}</Text>
+          <Text style={styles.statLabel}>Overdue</Text>
         </View>
-      </Section>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{stats.today}</Text>
+          <Text style={styles.statLabel}>Due Today</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{stats.total}</Text>
+          <Text style={styles.statLabel}>Active</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{stats.avgProgress}%</Text>
+          <Text style={styles.statLabel}>Avg Progress</Text>
+        </View>
+      </View>
 
-      <Section title="Active Claims Watchlist">
-        {!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_API_KEY ? (
-          <View style={styles.configWarning}>
-            <Text style={styles.configWarningText}>⚠️ Supabase not configured</Text>
-            <Text style={styles.configWarningSubtext}>
-              Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_API_KEY to your .env file
-            </Text>
+      {/* AI Daily Brief */}
+      {optimization && (
+        <Section title="AI Daily Brief">
+          <View style={styles.briefCard}>
+            <Text style={styles.briefIcon}>🤖</Text>
+            <Text style={styles.briefText}>{optimization.daily_brief}</Text>
+            {optimization.efficiency_score && (
+              <View style={styles.efficiencyBadge}>
+                <Text style={styles.efficiencyText}>
+                  Efficiency Score: {optimization.efficiency_score}/100
+                </Text>
+              </View>
+            )}
           </View>
-        ) : watchlistClaims.length === 0 ? (
-          <Text style={styles.emptyText}>No active claims. Great work!</Text>
-        ) : (
-          watchlistClaims.map((claim) => (
-            <Pressable
-              key={claim.id}
-              style={styles.claimCard}
-              onPress={() => router.push(`/claim/${claim.id}`)}
-            >
-              <View style={styles.claimInfo}>
-                <Text style={styles.claimNumber}>
-                  Claim #{claim.claim_number || 'Unnamed'}
-                </Text>
-                <Text style={styles.claimStatus}>
-                  Status: {claim.status || 'open'}
-                </Text>
-                <Text style={styles.claimDate}>
-                  Created: {new Date(claim.created_at).toLocaleDateString()}
-                </Text>
-              </View>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>View</Text>
-              </View>
-            </Pressable>
-          ))
-        )}
-      </Section>
 
-      <Section title="Quick Actions">
-        <Pressable 
-          style={styles.cta} 
-          onPress={() => router.push('/(tabs)/capture')}
-        >
-          <Text style={styles.ctaText}>📷 Capture New Photos</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.cta, { backgroundColor: colors.gold }]} 
-          onPress={() => router.push('/(tabs)/claims')}
-        >
-          <Text style={[styles.ctaText, { color: colors.core }]}>📁 View All Claims</Text>
-        </Pressable>
-      </Section>
-
-      {(WEATHER_API_CONFIGURED || weatherError) && (
-        <Section title="Weather Conditions">
-          {weather && (
-            <>
-              {/* Main Weather Card */}
-              <View style={styles.weatherCard}>
-                <View style={styles.weatherMain}>
-                  <View style={styles.weatherHeader}>
-                    <View>
-                      <Text style={styles.weatherTemp}>
-                        {Math.round(weather.temperature)}°{weather.units === 'metric' ? 'C' : 'F'}
-                      </Text>
-                      <Text style={styles.weatherFeelsLike}>
-                        Feels like {Math.round(weather.feelsLike)}°
-                      </Text>
-                    </View>
-                    {weather.partOfDay && (
-                      <Text style={styles.dayNightIcon}>
-                        {weather.partOfDay === 'day' ? '☀️' : '🌙'}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={styles.weatherCondition}>{weather.condition}</Text>
-                  {weather.location && (
-                    <Text style={styles.weatherLocation}>📍 {weather.location}</Text>
-                  )}
-                  {weather.observationTime && (
-                    <Text style={styles.weatherUpdate}>Updated: {weather.observationTime}</Text>
-                  )}
-                </View>
-
-                {/* Safety Assessment */}
-                {isSafeForRoofInspection(weather).safe ? (
-                  <View style={styles.safetyBadge}>
-                    <Text style={styles.safetyText}>✓ Safe for roof work</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.safetyBadge, { backgroundColor: '#FEE2E2' }]}>
-                    <Text style={[styles.safetyText, { color: '#DC2626' }]}>
-                      ⚠️ {isSafeForRoofInspection(weather).reason}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Detailed Weather Grid */}
-              <View style={styles.weatherGrid}>
-                {/* Wind Details */}
-                <View style={styles.weatherTile}>
-                  <Text style={styles.tileIcon}>💨</Text>
-                  <Text style={styles.tileTitle}>Wind</Text>
-                  <Text style={styles.tileValue}>
-                    {Math.round(weather.windSpeed)} {weather.units === 'metric' ? 'km/h' : 'mph'}
+          {/* Risk Alerts */}
+          {optimization.risk_alerts && optimization.risk_alerts.length > 0 && (
+            <View style={styles.alertsSection}>
+              {optimization.risk_alerts.map((alert, idx) => (
+                <View 
+                  key={idx} 
+                  style={[
+                    styles.riskAlert,
+                    alert.severity === 'high' && styles.riskAlertHigh,
+                    alert.severity === 'medium' && styles.riskAlertMedium
+                  ]}
+                >
+                  <Text style={styles.riskAlertIcon}>
+                    {alert.severity === 'high' ? '🚨' : alert.severity === 'medium' ? '⚠️' : 'ℹ️'}
                   </Text>
-                  <Text style={styles.tileSubtext}>{weather.windDirection}</Text>
-                  {weather.windGust && (
-                    <Text style={styles.tileExtra}>
-                      Gusts: {Math.round(weather.windGust)} {weather.units === 'metric' ? 'km/h' : 'mph'}
-                    </Text>
-                  )}
-                </View>
-
-                {/* Humidity */}
-                <View style={styles.weatherTile}>
-                  <Text style={styles.tileIcon}>💧</Text>
-                  <Text style={styles.tileTitle}>Humidity</Text>
-                  <Text style={styles.tileValue}>{weather.humidity}%</Text>
-                  {weather.dewPoint !== undefined && (
-                    <Text style={styles.tileSubtext}>
-                      Dew: {Math.round(weather.dewPoint)}°
-                    </Text>
-                  )}
-                </View>
-
-                {/* UV Index */}
-                {weather.uvIndex !== undefined && (
-                  <View style={styles.weatherTile}>
-                    <Text style={styles.tileIcon}>☀️</Text>
-                    <Text style={styles.tileTitle}>UV Index</Text>
-                    <Text style={[
-                      styles.tileValue,
-                      weather.uvIndex > 7 && { color: colors.error }
-                    ]}>
-                      {Math.round(weather.uvIndex)}
-                    </Text>
-                    <Text style={styles.tileSubtext}>
-                      {weather.uvIndex <= 2 ? 'Low' :
-                       weather.uvIndex <= 5 ? 'Moderate' :
-                       weather.uvIndex <= 7 ? 'High' :
-                       weather.uvIndex <= 10 ? 'Very High' : 'Extreme'}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Visibility */}
-                {weather.visibility !== undefined && (
-                  <View style={styles.weatherTile}>
-                    <Text style={styles.tileIcon}>👁️</Text>
-                    <Text style={styles.tileTitle}>Visibility</Text>
-                    <Text style={styles.tileValue}>
-                      {weather.visibility < 10 ? weather.visibility.toFixed(1) : Math.round(weather.visibility)}
-                    </Text>
-                    <Text style={styles.tileSubtext}>
-                      {weather.units === 'metric' ? 'km' : 'miles'}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Pressure */}
-                {weather.pressure && (
-                  <View style={styles.weatherTile}>
-                    <Text style={styles.tileIcon}>🔵</Text>
-                    <Text style={styles.tileTitle}>Pressure</Text>
-                    <Text style={styles.tileValue}>{Math.round(weather.pressure)}</Text>
-                    <Text style={styles.tileSubtext}>mb</Text>
-                  </View>
-                )}
-
-                {/* Cloud Coverage */}
-                {weather.cloudCoverage !== undefined && (
-                  <View style={styles.weatherTile}>
-                    <Text style={styles.tileIcon}>☁️</Text>
-                    <Text style={styles.tileTitle}>Clouds</Text>
-                    <Text style={styles.tileValue}>{weather.cloudCoverage}%</Text>
-                    <Text style={styles.tileSubtext}>
-                      {weather.cloudCoverage === 0 ? 'Clear' :
-                       weather.cloudCoverage <= 25 ? 'Few' :
-                       weather.cloudCoverage <= 50 ? 'Scattered' :
-                       weather.cloudCoverage <= 80 ? 'Broken' : 'Overcast'}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Air Quality */}
-                {weather.airQualityIndex && (
-                  <View style={styles.weatherTile}>
-                    <Text style={styles.tileIcon}>🌫️</Text>
-                    <Text style={styles.tileTitle}>Air Quality</Text>
-                    <Text style={[
-                      styles.tileValue,
-                      weather.airQualityIndex > 100 && { color: colors.warning },
-                      weather.airQualityIndex > 150 && { color: colors.error }
-                    ]}>
-                      {weather.airQualityIndex}
-                    </Text>
-                    <Text style={styles.tileSubtext}>
-                      {weather.airQualityIndex <= 50 ? 'Good' :
-                       weather.airQualityIndex <= 100 ? 'Moderate' :
-                       weather.airQualityIndex <= 150 ? 'Unhealthy*' :
-                       weather.airQualityIndex <= 200 ? 'Unhealthy' :
-                       weather.airQualityIndex <= 300 ? 'Very Unhealthy' : 'Hazardous'}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Precipitation */}
-                {(weather.precipitation !== undefined || weather.snow !== undefined) && (
-                  <View style={styles.weatherTile}>
-                    <Text style={styles.tileIcon}>🌧️</Text>
-                    <Text style={styles.tileTitle}>Precip</Text>
-                    <Text style={styles.tileValue}>
-                      {weather.precipitation || 0}
-                    </Text>
-                    <Text style={styles.tileSubtext}>mm/hr</Text>
-                    {weather.snow ? (
-                      <Text style={styles.tileExtra}>Snow: {weather.snow} mm/hr</Text>
-                    ) : null}
-                  </View>
-                )}
-              </View>
-
-              {/* Sun Times */}
-              {(weather.sunrise || weather.sunset) && (
-                <View style={styles.sunTimesCard}>
-                  {weather.sunrise && (
-                    <View style={styles.sunTimeItem}>
-                      <Text style={styles.sunIcon}>🌅</Text>
-                      <Text style={styles.sunLabel}>Sunrise</Text>
-                      <Text style={styles.sunTime}>{weather.sunrise}</Text>
-                    </View>
-                  )}
-                  {weather.sunset && (
-                    <View style={styles.sunTimeItem}>
-                      <Text style={styles.sunIcon}>🌇</Text>
-                      <Text style={styles.sunLabel}>Sunset</Text>
-                      <Text style={styles.sunTime}>{weather.sunset}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-            </>
-          )}
-
-          {!weather && weatherError && (
-            <Text style={styles.emptyText}>{weatherError}</Text>
-          )}
-
-          {weather && weatherAlerts.length > 0 && (
-            <View style={styles.alertsContainer}>
-              {weatherAlerts.map((alert, index) => (
-                <View key={index} style={[styles.alertCard, getSeverityColor(alert.severity)]}>
-                  <Text style={styles.alertHeadline}>{alert.headline}</Text>
-                  <Text style={styles.alertDesc} numberOfLines={2}>{alert.description}</Text>
+                  <Text style={styles.riskAlertText}>{alert.message}</Text>
                 </View>
               ))}
             </View>
           )}
+
+          {/* Recommendations */}
+          {optimization.recommendations && (
+            <View style={styles.recommendCard}>
+              <Text style={styles.recommendTitle}>💡 Recommendations</Text>
+              <Text style={styles.recommendText}>{optimization.recommendations}</Text>
+            </View>
+          )}
         </Section>
       )}
+
+      {/* Claims Dashboard */}
+      <Section title="Today's Claims">
+        {claimsWithSLA.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No active claims</Text>
+            <Text style={styles.emptySubtext}>
+              Upload an FNOL document to get started
+            </Text>
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.claimsScroll}>
+            {claimsWithSLA.map((claim) => (
+              <Pressable
+                key={claim.id}
+                style={[
+                  styles.claimCard,
+                  claim.sla_status === 'overdue' && styles.claimCardOverdue,
+                  claim.sla_status === 'critical' && styles.claimCardCritical
+                ]}
+                onPress={() => router.push(`/claim/${claim.id}`)}
+              >
+                {/* SLA Timer Badge */}
+                <View style={[styles.slaBadge, { backgroundColor: getSLAColor(claim.sla_status) }]}>
+                  <Text style={styles.slaText}>
+                    {claim.sla_status === 'overdue' 
+                      ? 'OVERDUE' 
+                      : claim.hours_remaining 
+                        ? `${Math.round(claim.hours_remaining)}h left`
+                        : 'No SLA'}
+                  </Text>
+                </View>
+
+                {/* Progress Ring */}
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressRing}>
+                    <View 
+                      style={[
+                        styles.progressFill,
+                        { 
+                          height: `${claim.progress_percent}%`,
+                          backgroundColor: getProgressRingColor(claim.progress_percent)
+                        }
+                      ]}
+                    />
+                    <Text style={styles.progressText}>{claim.progress_percent}%</Text>
+                  </View>
+                </View>
+
+                {/* Claim Info */}
+                <View style={styles.claimInfo}>
+                  <Text style={styles.claimNumber}>#{claim.claim_number}</Text>
+                  <Text style={styles.claimType}>{claim.loss_type || 'Unknown'}</Text>
+                  <Text style={styles.claimLocation} numberOfLines={1}>
+                    📍 {claim.loss_location || 'No location'}
+                  </Text>
+                  
+                  {/* Current Step */}
+                  {claim.current_step && (
+                    <View style={styles.currentStepBox}>
+                      <Text style={styles.currentStepLabel}>Current:</Text>
+                      <Text style={styles.currentStepText} numberOfLines={1}>
+                        {claim.current_step.title}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Steps Remaining */}
+                  <Text style={styles.stepsRemaining}>
+                    {claim.steps_remaining} steps remaining
+                  </Text>
+                </View>
+
+                {/* Priority Score */}
+                <View style={styles.priorityBadge}>
+                  <Text style={styles.priorityScore}>{claim.priority_score}</Text>
+                  <Text style={styles.priorityLabel}>Priority</Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+      </Section>
+
+      {/* Optimized Route */}
+      {optimization?.time_blocks && optimization.time_blocks.length > 0 && (
+        <Section title="Today's Schedule">
+          <View style={styles.timeline}>
+            {optimization.time_blocks.map((block, idx) => (
+              <View key={idx} style={styles.timeBlock}>
+                <View style={styles.timeColumn}>
+                  <Text style={styles.timeText}>{block.start_time}</Text>
+                  <View style={styles.timeLine} />
+                  <Text style={styles.timeTextEnd}>{block.end_time}</Text>
+                </View>
+                <View style={styles.timeContent}>
+                  <Text style={styles.timeActivity}>{block.activity}</Text>
+                  {block.notes && <Text style={styles.timeNotes}>{block.notes}</Text>}
+                  {block.travel_minutes && (
+                    <Text style={styles.travelTime}>🚗 {block.travel_minutes} min travel</Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+          
+          <Pressable 
+            style={styles.routeButton}
+            onPress={() => router.push('/(tabs)/map')}
+          >
+            <Text style={styles.routeButtonText}>📍 View Optimized Route on Map</Text>
+          </Pressable>
+        </Section>
+      )}
+
+      {/* Weather Dashboard */}
+      {weather && (
+        <Section title="Weather Conditions">
+          <View style={styles.weatherCard}>
+            <View style={styles.weatherMain}>
+              <View style={styles.weatherHeader}>
+                <View>
+                  <Text style={styles.weatherTemp}>
+                    {Math.round(weather.temperature)}°{weather.units === 'metric' ? 'C' : 'F'}
+                  </Text>
+                  <Text style={styles.weatherFeelsLike}>
+                    Feels like {Math.round(weather.feelsLike)}°
+                  </Text>
+                </View>
+                {weather.partOfDay && (
+                  <Text style={styles.dayNightIcon}>
+                    {weather.partOfDay === 'day' ? '☀️' : '🌙'}
+                  </Text>
+                )}
+              </View>
+              <Text style={styles.weatherCondition}>{weather.condition}</Text>
+              {weather.location && (
+                <Text style={styles.weatherLocation}>📍 {weather.location}</Text>
+              )}
+            </View>
+
+            {/* Safety Assessment */}
+            {isSafeForRoofInspection(weather).safe ? (
+              <View style={styles.safetyBadge}>
+                <Text style={styles.safetyText}>✓ Safe for outdoor inspections</Text>
+              </View>
+            ) : (
+              <View style={[styles.safetyBadge, { backgroundColor: '#FEE2E2' }]}>
+                <Text style={[styles.safetyText, { color: '#DC2626' }]}>
+                  ⚠️ {isSafeForRoofInspection(weather).reason}
+                </Text>
+              </View>
+            )}
+
+            {/* Weather Windows from AI */}
+            {optimization?.weather_windows && optimization.weather_windows.length > 0 && (
+              <View style={styles.weatherWindows}>
+                <Text style={styles.windowsTitle}>Best Work Windows:</Text>
+                {optimization.weather_windows.map((window, idx) => (
+                  <View key={idx} style={styles.weatherWindow}>
+                    <Text style={styles.windowTime}>
+                      {window.start_time} - {window.end_time}
+                    </Text>
+                    <Text style={[
+                      styles.windowCondition,
+                      window.safe_for_outdoor && styles.windowSafe
+                    ]}>
+                      {window.conditions}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </Section>
+      )}
+
+      {/* Quick Actions */}
+      <Section title="Actions">
+        <Pressable 
+          style={[styles.actionButton, generatingAI && styles.actionButtonDisabled]}
+          onPress={generateOptimization}
+          disabled={generatingAI}
+        >
+          <Text style={styles.actionButtonText}>
+            {generatingAI ? 'Generating AI Plan...' : '🤖 Generate New AI Optimization'}
+          </Text>
+        </Pressable>
+        <Pressable 
+          style={[styles.actionButton, { backgroundColor: colors.secondary }]} 
+          onPress={() => router.push('/(tabs)/capture')}
+        >
+          <Text style={styles.actionButtonText}>📸 Capture Photos</Text>
+        </Pressable>
+        <Pressable 
+          style={[styles.actionButton, { backgroundColor: colors.gold }]} 
+          onPress={() => router.push('/(tabs)/claims')}
+        >
+          <Text style={[styles.actionButtonText, { color: colors.core }]}>📄 Upload FNOL</Text>
+        </Pressable>
+      </Section>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bgSoft },
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.bgSoft 
+  },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bgSoft,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: colors.textSoft,
   },
   statsRow: {
     flexDirection: 'row',
@@ -432,6 +457,10 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     alignItems: 'center',
   },
+  statCardDanger: {
+    borderColor: colors.error,
+    borderWidth: 2,
+  },
   statValue: {
     fontSize: 28,
     fontWeight: '700',
@@ -443,67 +472,291 @@ const styles = StyleSheet.create({
     color: '#5F6771',
     textAlign: 'center',
   },
-  claimCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+
+  // AI Brief Styles
+  briefCard: {
     backgroundColor: colors.white,
-    padding: 12,
+    padding: 16,
     marginHorizontal: 16,
-    marginBottom: 8,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  briefIcon: {
+    fontSize: 32,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  briefText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.core,
+  },
+  efficiencyBadge: {
+    backgroundColor: colors.successBg,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  efficiencyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.success,
+  },
+
+  // Risk Alerts
+  alertsSection: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  riskAlert: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.infoBg,
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.info,
+  },
+  riskAlertMedium: {
+    backgroundColor: colors.warningBg,
+    borderLeftColor: colors.warning,
+  },
+  riskAlertHigh: {
+    backgroundColor: colors.errorBg,
+    borderLeftColor: colors.error,
+  },
+  riskAlertIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  riskAlertText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.core,
+  },
+
+  // Recommendations
+  recommendCard: {
+    backgroundColor: '#F0F9FF',
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  recommendTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0369A1',
+    marginBottom: 8,
+  },
+  recommendText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#075985',
+  },
+
+  // Claims Cards
+  claimsScroll: {
+    paddingHorizontal: 16,
+  },
+  claimCard: {
+    width: screenWidth * 0.75,
+    backgroundColor: colors.white,
+    marginRight: 12,
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.secondary,
-    borderColor: colors.light,
+    borderColor: colors.line,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  claimCardOverdue: {
+    borderColor: colors.error,
+    borderWidth: 2,
+  },
+  claimCardCritical: {
+    borderColor: '#FF6B6B',
+    borderWidth: 2,
+  },
+  slaBadge: {
+    position: 'absolute',
+    top: -10,
+    right: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 1,
+  },
+  slaText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  progressContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  progressRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 6,
+    borderColor: colors.line,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.primary,
+  },
+  progressText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.core,
+    zIndex: 1,
   },
   claimInfo: {
     flex: 1,
   },
   claimNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.core,
+    marginBottom: 4,
+  },
+  claimType: {
+    fontSize: 13,
+    color: colors.textSoft,
+    textTransform: 'capitalize',
+    marginBottom: 4,
+  },
+  claimLocation: {
+    fontSize: 12,
+    color: '#5F6771',
+    marginBottom: 8,
+  },
+  currentStepBox: {
+    backgroundColor: colors.bgSoft,
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  currentStepLabel: {
+    fontSize: 10,
+    color: colors.textSoft,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  currentStepText: {
+    fontSize: 12,
+    color: colors.core,
+    fontWeight: '500',
+  },
+  stepsRemaining: {
+    fontSize: 11,
+    color: colors.textSoft,
+    marginTop: 8,
+  },
+  priorityBadge: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    alignItems: 'center',
+  },
+  priorityScore: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  priorityLabel: {
+    fontSize: 10,
+    color: colors.textSoft,
+    textTransform: 'uppercase',
+  },
+
+  // Timeline
+  timeline: {
+    paddingHorizontal: 16,
+  },
+  timeBlock: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  timeColumn: {
+    width: 80,
+    alignItems: 'center',
+  },
+  timeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  timeTextEnd: {
+    fontSize: 12,
+    color: colors.textSoft,
+  },
+  timeLine: {
+    width: 2,
+    height: 40,
+    backgroundColor: colors.line,
+    marginVertical: 4,
+  },
+  timeContent: {
+    flex: 1,
+    backgroundColor: colors.white,
+    padding: 12,
+    borderRadius: 10,
+    marginLeft: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  timeActivity: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.core,
     marginBottom: 4,
   },
-  claimStatus: {
+  timeNotes: {
     fontSize: 12,
-    color: '#5F6771',
-    textTransform: 'capitalize',
+    color: colors.textSoft,
+    marginTop: 4,
   },
-  claimDate: {
+  travelTime: {
     fontSize: 11,
-    color: '#9AA0A6',
-    marginTop: 2,
+    color: '#5F6771',
+    marginTop: 6,
   },
-  statusBadge: {
+
+  // Route Button
+  routeButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 16,
   },
-  statusText: {
+  routeButtonText: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
   },
-  emptyText: {
-    fontSize: 14,
-    color: '#9AA0A6',
-    textAlign: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  p: { color: "#2B2F36", marginBottom: 8, paddingHorizontal: 16 },
-  cta: { 
-    backgroundColor: colors.primary, 
-    paddingVertical: 14, 
-    borderRadius: 12, 
-    alignItems: "center", 
-    marginHorizontal: 16,
-    marginBottom: 8,
-  },
-  ctaText: { color: colors.white, fontWeight: "600", fontSize: 15 },
+
+  // Weather
   weatherCard: {
     backgroundColor: colors.white,
     marginHorizontal: 16,
@@ -511,15 +764,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.line,
-    marginBottom: 12,
   },
   weatherMain: {
     marginBottom: 12,
+  },
+  weatherHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   weatherTemp: {
     fontSize: 40,
     fontWeight: '700',
     color: colors.primary,
+  },
+  weatherFeelsLike: {
+    fontSize: 14,
+    color: '#5F6771',
+    marginTop: 4,
   },
   weatherCondition: {
     fontSize: 16,
@@ -532,105 +794,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontWeight: '500',
   },
-  weatherWind: {
-    fontSize: 13,
-    color: '#5F6771',
-    marginTop: 4,
-  },
-  weatherHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  weatherFeelsLike: {
-    fontSize: 14,
-    color: '#5F6771',
-    marginTop: 4,
-  },
-  weatherUpdate: {
-    fontSize: 11,
-    color: '#9AA0A6',
-    marginTop: 6,
-    fontStyle: 'italic',
-  },
   dayNightIcon: {
     fontSize: 36,
-  },
-  weatherGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 16,
-    marginTop: 12,
-  },
-  weatherTile: {
-    backgroundColor: colors.white,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.line,
-    width: '31%',
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  tileIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  tileTitle: {
-    fontSize: 11,
-    color: '#9AA0A6',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  tileValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.core,
-  },
-  tileSubtext: {
-    fontSize: 12,
-    color: '#5F6771',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  tileExtra: {
-    fontSize: 10,
-    color: '#9AA0A6',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  sunTimesCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.white,
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
-    marginTop: 12,
-    justifyContent: 'space-around',
-  },
-  sunTimeItem: {
-    alignItems: 'center',
-  },
-  sunIcon: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  sunLabel: {
-    fontSize: 11,
-    color: '#9AA0A6',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  sunTime: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.core,
   },
   safetyBadge: {
     backgroundColor: colors.successBg,
@@ -642,50 +807,70 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.success,
   },
-  alertsContainer: {
-    paddingHorizontal: 16,
-    gap: 8,
+  weatherWindows: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
   },
-  alertCard: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-  },
-  alertHeadline: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#78350F',
-    marginBottom: 4,
-  },
-  alertDesc: {
-    fontSize: 12,
-    color: '#92400E',
-  },
-  configWarning: {
-    backgroundColor: '#FFF5F5',
-    padding: 16,
-    marginHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FED7D7',
-  },
-  configWarningText: {
-    fontSize: 14,
+  windowsTitle: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#C53030',
-    marginBottom: 4,
+    color: colors.core,
+    marginBottom: 8,
   },
-  configWarningSubtext: {
+  weatherWindow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  windowTime: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.core,
+  },
+  windowCondition: {
     fontSize: 12,
-    color: '#742A2A',
+    color: colors.textSoft,
+  },
+  windowSafe: {
+    color: colors.success,
+    fontWeight: '500',
+  },
+
+  // Actions
+  actionButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
+  actionButtonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  // Empty State
+  emptyContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSoft,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.textSoft,
+    textAlign: 'center',
   },
 });
-
-function getSeverityColor(severity: string) {
-  switch (severity) {
-    case 'extreme': return { backgroundColor: colors.errorBg, borderColor: colors.error };
-    case 'severe': return { backgroundColor: colors.warningBg, borderColor: colors.warning };
-    default: return { backgroundColor: colors.infoBg, borderColor: colors.info };
-  }
-}
