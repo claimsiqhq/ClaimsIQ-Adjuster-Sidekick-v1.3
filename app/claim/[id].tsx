@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { getClaimById } from '@/services/claims';
@@ -11,7 +11,17 @@ import { getHistoricalWeather, Weather } from '@/services/weather';
 import { geocodeAddress } from '@/services/location';
 
 // Define types for better code clarity
-type Claim = { id: string; claim_number: string; policy_number: string; };
+type Claim = { 
+  id: string; 
+  claim_number: string; 
+  policy_number: string; 
+  loss_date?: string;
+  loss_location?: string;
+  insured_name?: string;
+  carrier_name?: string;
+  cause_of_loss?: string;
+  metadata?: any;
+};
 type Media = { id: string; public_url: string; status: 'pending' | 'annotated' | 'failed' };
 
 export default function ClaimDetailScreen() {
@@ -100,58 +110,216 @@ export default function ClaimDetailScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: `Claim ${claim.claim_number}` }} />
-      <View style={styles.header}>
-        <Text style={styles.title}>{claim.claim_number}</Text>
-        <Text style={styles.subtitle}>Policy: {claim.policy_number}</Text>
+      <ScrollView>
+        <View style={styles.header}>
+          <Text style={styles.title}>{claim.claim_number}</Text>
+          <Text style={styles.subtitle}>Policy: {claim.policy_number}</Text>
+          
+          {/* Display key extracted FNOL data if available */}
+          {claim.metadata && (
+            <>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Insured:</Text>
+                <Text style={styles.value}>
+                  {claim.metadata.policyHolder?.insuredName || claim.insured_name || 'N/A'}
+                </Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Carrier:</Text>
+                <Text style={styles.value}>
+                  {claim.metadata.carrierName || claim.carrier_name || 'N/A'}
+                </Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Loss Type:</Text>
+                <Text style={styles.value}>
+                  {claim.metadata.lossDetails?.causeOfLoss || claim.cause_of_loss || 'Property Damage'}
+                </Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Loss Date:</Text>
+                <Text style={styles.value}>
+                  {claim.metadata.lossDetails?.dateOfLoss || claim.loss_date || 'N/A'}
+                </Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Location:</Text>
+                <Text style={styles.value}>
+                  {claim.metadata.lossDetails?.lossLocation || claim.loss_location || 'N/A'}
+                </Text>
+              </View>
+              
+              {claim.metadata.lossDetails?.lossDescription && (
+                <View style={styles.descriptionBox}>
+                  <Text style={styles.label}>Description:</Text>
+                  <Text style={styles.description}>
+                    {claim.metadata.lossDetails.lossDescription}
+                  </Text>
+                </View>
+              )}
+              
+              {claim.metadata.adjustor && (
+                <View style={styles.adjustorBox}>
+                  <Text style={styles.sectionLabel}>Adjuster Information</Text>
+                  <Text style={styles.value}>
+                    {claim.metadata.adjustor.adjustorAssigned || 'Not assigned'}
+                  </Text>
+                  {claim.metadata.adjustor.adjustorEmail && (
+                    <Text style={styles.subValue}>{claim.metadata.adjustor.adjustorEmail}</Text>
+                  )}
+                  {claim.metadata.adjustor.adjustorPhoneNumber && (
+                    <Text style={styles.subValue}>{claim.metadata.adjustor.adjustorPhoneNumber}</Text>
+                  )}
+                </View>
+              )}
+            </>
+          )}
+          
+          {lossWeather && (
+            <View style={styles.weatherBanner}>
+              <Text style={styles.weatherLabel}>Weather on Date of Loss:</Text>
+              <Text style={styles.weatherValue}>
+                {Math.round(lossWeather.temperature)}°F • {lossWeather.condition} • Wind: {Math.round(lossWeather.windSpeed)} mph
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.galleryHeader}>Gallery</Text>
         
-        {lossWeather && (
-          <View style={styles.weatherBanner}>
-            <Text style={styles.weatherLabel}>Weather on Date of Loss:</Text>
-            <Text style={styles.weatherValue}>
-              {Math.round(lossWeather.temperature)}°F • {lossWeather.condition} • Wind: {Math.round(lossWeather.windSpeed)} mph
-            </Text>
+        {media.length === 0 ? (
+          <Text style={styles.emptyText}>No media found for this claim.</Text>
+        ) : (
+          <View style={styles.mediaGrid}>
+            {media.map((item) => (
+              <Pressable 
+                key={item.id}
+                style={styles.mediaItem} 
+                onPress={() => router.push(`/photo/${item.id}`)}
+              >
+                {/* Simple visual indicator for annotation status */}
+                {item.status === 'pending' && (
+                  <View style={styles.pendingIndicator}>
+                    <ActivityIndicator size="small" />
+                  </View>
+                )}
+              </Pressable>
+            ))}
           </View>
         )}
-      </View>
-      <FlatList
-        data={media}
-        keyExtractor={(item) => item.id}
-        numColumns={3}
-        renderItem={({ item }) => (
-          <Pressable style={styles.mediaItem} onPress={() => router.push(`/photo/${item.id}`)}>
-             {/* Simple visual indicator for annotation status */}
-            {item.status === 'pending' && <View style={styles.pendingIndicator}><ActivityIndicator size="small" /></View>}
-          </Pressable>
-        )}
-        ListHeaderComponent={<Text style={styles.galleryHeader}>Gallery</Text>}
-        ListEmptyComponent={<Text style={styles.emptyText}>No media found for this claim.</Text>}
-      />
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    container: { flex: 1, backgroundColor: colors.bgSoft },
-    header: { padding: 20, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
-    title: { fontSize: 24, fontWeight: 'bold', color: colors.text },
-    subtitle: { fontSize: 16, color: colors.textSoft, marginTop: 4 },
-    galleryHeader: { fontSize: 18, fontWeight: '600', padding: 20, color: colors.text },
-    mediaItem: {
-        flex: 1 / 3,
-        aspectRatio: 1,
-        backgroundColor: '#ccc',
-        margin: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    pendingIndicator: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emptyText: { textAlign: 'center', marginTop: 20, color: colors.textSoft },
+  centered: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.bgSoft 
+  },
+  header: { 
+    padding: 20, 
+    backgroundColor: colors.white, 
+    borderBottomWidth: 1, 
+    borderBottomColor: colors.border 
+  },
+  title: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: colors.text 
+  },
+  subtitle: { 
+    fontSize: 16, 
+    color: colors.textSoft, 
+    marginTop: 4,
+    marginBottom: 16
+  },
+  infoRow: {
+    flexDirection: 'row',
+    marginVertical: 6,
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textLight,
+    width: 100,
+  },
+  value: {
+    fontSize: 14,
+    color: colors.text,
+    flex: 1,
+  },
+  subValue: {
+    fontSize: 13,
+    color: colors.textLight,
+    marginTop: 4,
+  },
+  sectionLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  descriptionBox: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: colors.bgSoft,
+    borderRadius: 8,
+  },
+  description: {
+    fontSize: 13,
+    color: colors.text,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  adjustorBox: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: colors.light,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  galleryHeader: { 
+    fontSize: 18, 
+    fontWeight: '600', 
+    padding: 20, 
+    color: colors.text 
+  },
+  mediaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 1,
+  },
+  mediaItem: {
+    width: '33.33%',
+    aspectRatio: 1,
+    backgroundColor: '#ccc',
+    padding: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pendingIndicator: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: { 
+    textAlign: 'center', 
+    marginTop: 20, 
+    color: colors.textSoft 
+  },
   weatherBanner: {
     marginTop: 12,
     padding: 12,
