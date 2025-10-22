@@ -38,7 +38,7 @@ supabase link --project-ref lyppkkpawalcchbgbkxg
 supabase functions deploy vision-annotate
 
 # Deploy FNOL extraction function (uses free unpdf library for PDF conversion)
-supabase functions deploy fnol-extract-with-conversion
+supabase functions deploy fnol-extract
 
 # Deploy Daily optimization function
 supabase functions deploy daily-optimize
