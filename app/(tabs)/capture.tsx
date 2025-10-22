@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'expo-router';
 import { invokeAnnotation } from '@/services/annotate';
 import { getOrCreateClaimByNumber, listClaimsLike } from '@/services/claims';
+import { getSession } from '@/services/auth';
 
 type GridItem = MediaItem & { thumb_uri?: string };
 
@@ -217,12 +218,44 @@ export default function CaptureScreen() {
 
         (async () => {
           try {
+            // Get current user session
+            const session = await getSession();
+            if (!session?.user?.id) {
+              throw new Error('No user session found. Please log in again.');
+            }
+            
             const fileName = `${uuidv4()}.jpg`;
             const path = `media/${fileName}`;
+            
+            // Upload photo to Supabase storage
             await uploadPhotoToStorage(localUri, path);
-            const row = await insertMediaRow({ claim_id: null, type: 'photo', status: 'annotating', label: 'Photo', storage_path: path, anno_count: 0, qc: null });
+            
+            // Insert media record with user_id
+            const row = await insertMediaRow({ 
+              user_id: session.user.id,  // Include user_id!
+              claim_id: null, 
+              type: 'photo', 
+              status: 'pending',  // Start as pending, not annotating
+              label: 'Photo', 
+              storage_path: path, 
+              anno_count: 0, 
+              qc: null 
+            });
+            
+            // Update local state with the new row
             setItems(prev => [ { ...row, thumb_uri: localUri }, ...prev.filter(x => x.id !== tempId) ]);
-            invokeAnnotation(row.id, path).then(loadGallery).catch(err => Alert.alert('Annotation failed', String(err?.message ?? err)));
+            
+            // Try to invoke annotation (optional - won't fail if edge function not deployed)
+            invokeAnnotation(row.id, path)
+              .then(() => {
+                // Update status to annotating
+                setItems(prev => prev.map(x => x.id === row.id ? { ...x, status: 'annotating' } : x));
+                return loadGallery();
+              })
+              .catch(err => {
+                console.log('Annotation service not available:', err);
+                // Photo is still uploaded successfully even if annotation fails
+              });
           } catch (e: any) {
             Alert.alert('Upload failed', String(e?.message ?? e));
             setItems(prev => prev.map(x => x.id === tempId ? { ...x, status: 'error' } : x));
