@@ -19,21 +19,31 @@ export default function ClaimsScreen() {
   const { setActiveClaimId } = useClaimStore();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (session) {
       const fetchClaims = async () => {
         try {
           setLoading(true);
+          setError(null);
+          console.log('Fetching claims for user:', session.user.id);
           const userClaims = await getClaims(session.user.id);
+          console.log(`Found ${userClaims?.length || 0} claims`);
           setClaims(userClaims || []);
-        } catch (error) {
+        } catch (error: any) {
+          console.error('Claims fetch error:', error);
+          setError(error?.message || 'Failed to fetch claims');
           handleAppError(error, "Failed to fetch claims.");
+          setClaims([]);
         } finally {
           setLoading(false);
         }
       };
       fetchClaims();
+    } else {
+      setLoading(false);
+      setClaims([]);
     }
   }, [session]);
 
@@ -57,7 +67,21 @@ export default function ClaimsScreen() {
             <Text style={styles.itemSubtitle}>Policy: {item.policy_number}</Text>
           </Pressable>
         )}
-        ListEmptyComponent={<Text style={styles.emptyText}>No claims found.</Text>}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No claims found</Text>
+            <Text style={styles.emptySubtext}>
+              Upload an FNOL PDF document to create your first claim.
+              {'\n\n'}Go to Capture → Document to get started.
+            </Text>
+            <Pressable 
+              style={styles.uploadButton}
+              onPress={() => router.push('/document/upload')}
+            >
+              <Text style={styles.uploadButtonText}>Upload FNOL Document</Text>
+            </Pressable>
+          </View>
+        }
       />
     </View>
   );
