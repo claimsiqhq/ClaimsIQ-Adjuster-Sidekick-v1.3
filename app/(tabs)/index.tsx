@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, SafeAreaView } from "react-native";
-import { useRouter } from "expo-router";
-import Header from "@/components/Header";
-import Section from "@/components/Section";
-import { colors } from "@/theme/colors";
-import { supabase } from "@/utils/supabase";
-import { getSession } from "@/services/auth";
-import { getCurrentLocation } from "@/services/location";
-import { getWeather, Weather } from "@/services/weather";
+// app/(tabs)/index.tsx
+// Home screen with dashboard, weather, and quick actions
 
-interface DashboardStats {
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, SafeAreaView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { supabase } from '@/config/supabase';
+import { getSession } from '@/services/auth';
+import { getCurrentLocation, getWeather, type Weather } from '@/services/weather';
+import Header from '@/components/Header';
+import Section from '@/components/Section';
+import { colors } from '@/theme/colors';
+
+interface Stats {
   totalClaims: number;
   photosToday: number;
   photosTotal: number;
@@ -18,7 +21,7 @@ interface DashboardStats {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats>({
+  const [stats, setStats] = useState<Stats>({
     totalClaims: 0,
     photosToday: 0,
     photosTotal: 0,
@@ -27,10 +30,19 @@ export default function HomeScreen() {
   const [userName, setUserName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [weather, setWeather] = useState<Weather | null>(null);
+  const [units, setUnits] = useState<'metric' | 'imperial'>('imperial');
 
   useEffect(() => {
     loadDashboard();
+    loadUnitsPreference();
   }, []);
+
+  async function loadUnitsPreference() {
+    const stored = await AsyncStorage.getItem('settings_units');
+    if (stored === 'metric' || stored === 'imperial') {
+      setUnits(stored);
+    }
+  }
 
   async function loadDashboard() {
     try {
@@ -110,214 +122,331 @@ export default function HomeScreen() {
     return 'Good Evening';
   };
 
+  const formatTemperature = (temp: number) => {
+    return units === 'imperial' ? `${Math.round(temp)}°F` : `${Math.round(temp)}°C`;
+  };
+
+  const formatWindSpeed = (speed: number) => {
+    return units === 'imperial' ? `${Math.round(speed)} mph` : `${Math.round(speed)} km/h`;
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentInsetAdjustmentBehavior="automatic">
         <Header 
           title={`${greeting()}, ${userName}`}
-          subtitle="Your Claims iQ Sidekick dashboard"
+          subtitle="Your Claims Dashboard"
         />
 
-        <Section title="Today's Overview">
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, styles.statCardLarge]}>
-            <Text style={styles.statValue}>{stats.totalClaims}</Text>
-            <Text style={styles.statLabel}>Total Claims</Text>
+        {/* Weather Card - Top Priority */}
+        {weather && (
+          <View style={styles.weatherSection}>
+            <View style={styles.weatherMainCard}>
+              <View style={styles.weatherHeader}>
+                <Text style={styles.weatherLocation}>{weather.location || 'Current Location'}</Text>
+                <Text style={styles.weatherTime}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+              </View>
+              <View style={styles.weatherBody}>
+                <View style={styles.weatherLeft}>
+                  <Text style={styles.weatherTemp}>{formatTemperature(weather.temperature)}</Text>
+                  <Text style={styles.weatherFeels}>Feels like {formatTemperature(weather.feelsLike)}</Text>
+                </View>
+                <View style={styles.weatherRight}>
+                  <Text style={styles.weatherCondition}>{weather.condition}</Text>
+                  <Text style={styles.weatherDetail}>Wind: {formatWindSpeed(weather.windSpeed)}</Text>
+                  <Text style={styles.weatherDetail}>Humidity: {weather.humidity}%</Text>
+                </View>
+              </View>
+            </View>
           </View>
-          <View style={[styles.statCard, styles.statCardLarge]}>
-            <Text style={styles.statValue}>{stats.photosToday}</Text>
-            <Text style={styles.statLabel}>Photos Today</Text>
+        )}
+
+        {/* Quick Actions - Horizontal Scroll */}
+        <View style={styles.quickActionsContainer}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickActions}>
+            <Pressable 
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(tabs)/capture')}
+            >
+              <View style={styles.quickActionIconBg}>
+                <Text style={styles.quickActionIcon}>📷</Text>
+              </View>
+              <Text style={styles.quickActionTitle}>Capture</Text>
+              <Text style={styles.quickActionDesc}>Take photos</Text>
+            </Pressable>
+
+            <Pressable 
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(tabs)/claims')}
+            >
+              <View style={styles.quickActionIconBg}>
+                <Text style={styles.quickActionIcon}>📋</Text>
+              </View>
+              <Text style={styles.quickActionTitle}>Claims</Text>
+              <Text style={styles.quickActionDesc}>View all</Text>
+            </Pressable>
+
+            <Pressable 
+              style={styles.quickActionCard}
+              onPress={() => router.push('/claim/new')}
+            >
+              <View style={styles.quickActionIconBg}>
+                <Text style={styles.quickActionIcon}>➕</Text>
+              </View>
+              <Text style={styles.quickActionTitle}>New Claim</Text>
+              <Text style={styles.quickActionDesc}>Start new</Text>
+            </Pressable>
+
+            <Pressable 
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(tabs)/today')}
+            >
+              <View style={styles.quickActionIconBg}>
+                <Text style={styles.quickActionIcon}>📅</Text>
+              </View>
+              <Text style={styles.quickActionTitle}>Schedule</Text>
+              <Text style={styles.quickActionDesc}>Today's plan</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+
+        {/* Stats Overview - Modern Cards */}
+        <View style={styles.statsContainer}>
+          <Text style={styles.sectionTitle}>Activity Overview</Text>
+          <View style={styles.statsRow}>
+            <View style={[styles.statBox, { backgroundColor: colors.primary }]}>
+              <Text style={styles.statNumber}>{stats.claimsInProgress}</Text>
+              <Text style={styles.statLabelWhite}>Active Claims</Text>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: colors.purple }]}>
+              <Text style={styles.statNumber}>{stats.photosToday}</Text>
+              <Text style={styles.statLabelWhite}>Photos Today</Text>
+            </View>
+          </View>
+          <View style={styles.statsRow}>
+            <View style={[styles.statBox, styles.statBoxOutline]}>
+              <Text style={[styles.statNumber, { color: colors.core }]}>{stats.totalClaims}</Text>
+              <Text style={styles.statLabelDark}>Total Claims</Text>
+            </View>
+            <View style={[styles.statBox, styles.statBoxOutline]}>
+              <Text style={[styles.statNumber, { color: colors.core }]}>{stats.photosTotal}</Text>
+              <Text style={styles.statLabelDark}>Total Photos</Text>
+            </View>
           </View>
         </View>
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { fontSize: 20 }]}>{stats.claimsInProgress}</Text>
-            <Text style={[styles.statLabel, { fontSize: 10 }]}>In Progress</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { fontSize: 20 }]}>{stats.photosTotal}</Text>
-            <Text style={[styles.statLabel, { fontSize: 10 }]}>Total Photos</Text>
-          </View>
-        </View>
-      </Section>
 
-      <Section title="Quick Actions">
-        <Pressable 
-          style={styles.actionCard}
-          onPress={() => router.push('/(tabs)/capture')}
-        >
-          <View style={styles.actionIcon}>
-            <Text style={styles.actionIconText}>📷</Text>
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Capture Photos</Text>
-            <Text style={styles.actionDesc}>Take photos and start AI analysis</Text>
-          </View>
-        </Pressable>
-
-        <Pressable 
-          style={styles.actionCard}
-          onPress={() => router.push('/(tabs)/claims')}
-        >
-          <View style={styles.actionIcon}>
-            <Text style={styles.actionIconText}>📁</Text>
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>View Claims</Text>
-            <Text style={styles.actionDesc}>Browse and manage your claims</Text>
-          </View>
-        </Pressable>
-
-        <Pressable 
-          style={styles.actionCard}
-          onPress={() => router.push('/(tabs)/today')}
-        >
-          <View style={styles.actionIcon}>
-            <Text style={styles.actionIconText}>📅</Text>
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Today's Schedule</Text>
-            <Text style={styles.actionDesc}>View active claims and watchlist</Text>
-          </View>
-        </Pressable>
-      </Section>
-
-      {weather && (
-        <Section title="Current Weather">
-          <View style={styles.weatherCard}>
-            <Text style={styles.weatherTemp}>{Math.round(weather.temperature)}°F</Text>
-            <Text style={styles.weatherCondition}>{weather.condition}</Text>
-            <Text style={styles.weatherDetails}>
-              Wind: {Math.round(weather.windSpeed)} mph • Humidity: {weather.humidity}%
-            </Text>
+        {/* Recent Activity */}
+        <Section title="Recent Activity">
+          <View style={styles.activityCard}>
+            <View style={styles.activityDot} />
+            <View style={styles.activityContent}>
+              <Text style={styles.activityTitle}>Ready for inspections</Text>
+              <Text style={styles.activityTime}>Start by capturing photos or uploading FNOL documents</Text>
+            </View>
           </View>
         </Section>
-      )}
-
-      <Section title="About Claims iQ Sidekick">
-        <Text style={styles.aboutText}>
-          Your intelligent assistant for streamlining claims processing and management. 
-          Capture photos, leverage AI-powered damage detection, and manage claims efficiently.
-        </Text>
-      </Section>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.bgSoft },
-  container: { flex: 1 },
+  safeArea: { 
+    flex: 1, 
+    backgroundColor: colors.bgSoft 
+  },
+  container: { 
+    flex: 1 
+  },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bgSoft,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 8,
+  
+  // Weather Styles
+  weatherSection: {
     paddingHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 20,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.light,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    minHeight: 80,
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statCardLarge: {
-    minHeight: 100,
-  },
-  statValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#5F6771',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  actionCard: {
-    flexDirection: 'row',
+  weatherMainCard: {
     backgroundColor: colors.white,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 10,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderLeftWidth: 6,
-    borderLeftColor: colors.primary,
-    borderColor: colors.light,
-    alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.line,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+  weatherHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  actionIconText: {
-    fontSize: 24,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 16,
+  weatherLocation: {
+    fontSize: 18,
     fontWeight: '600',
     color: colors.core,
-    marginBottom: 4,
   },
-  actionDesc: {
-    fontSize: 13,
-    color: '#5F6771',
-  },
-  aboutText: {
+  weatherTime: {
     fontSize: 14,
-    color: '#2B2F36',
-    lineHeight: 20,
-    paddingHorizontal: 16,
+    color: colors.textSoft,
   },
-  weatherCard: {
-    padding: 16,
-    alignItems: 'center',
+  weatherBody: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  weatherLeft: {
+    flex: 1,
   },
   weatherTemp: {
     fontSize: 48,
     fontWeight: '700',
     color: colors.primary,
+    marginBottom: 4,
+  },
+  weatherFeels: {
+    fontSize: 14,
+    color: colors.textSoft,
+  },
+  weatherRight: {
+    flex: 1,
+    justifyContent: 'center',
   },
   weatherCondition: {
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.core,
-    marginTop: 8,
-    textTransform: 'capitalize',
+    marginBottom: 8,
   },
-  weatherDetails: {
+  weatherDetail: {
     fontSize: 14,
-    color: colors.textLight,
-    marginTop: 4,
+    color: colors.textSoft,
+    marginBottom: 4,
+  },
+
+  // Quick Actions
+  quickActionsContainer: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.core,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  quickActions: {
+    paddingHorizontal: 12,
+  },
+  quickActionCard: {
+    width: 100,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  quickActionIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  quickActionIcon: {
+    fontSize: 24,
+  },
+  quickActionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.core,
+    marginBottom: 2,
+  },
+  quickActionDesc: {
+    fontSize: 11,
+    color: colors.textSoft,
+  },
+
+  // Stats
+  statsContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 20,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  statBox: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 90,
+  },
+  statBoxOutline: {
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.line,
+  },
+  statNumber: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 4,
+  },
+  statLabelWhite: {
+    fontSize: 13,
+    color: colors.white,
+    fontWeight: '500',
+  },
+  statLabelDark: {
+    fontSize: 13,
+    color: colors.textSoft,
+    fontWeight: '500',
+  },
+
+  // Activity
+  activityCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+  },
+  activityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+    marginRight: 12,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.core,
+    marginBottom: 2,
+  },
+  activityTime: {
+    fontSize: 12,
+    color: colors.textSoft,
   },
 });
