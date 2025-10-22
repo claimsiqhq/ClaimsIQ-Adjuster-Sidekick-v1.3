@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator } from "react-native";
+import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, SafeAreaView } from "react-native";
 import { useRouter } from "expo-router";
 import Header from "@/components/Header";
 import Section from "@/components/Section";
@@ -111,13 +111,14 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentInsetAdjustmentBehavior="automatic">
-      <Header 
-        title={`${greeting()}, ${userName}`}
-        subtitle="Your Claims iQ Sidekick dashboard"
-      />
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} contentInsetAdjustmentBehavior="automatic">
+        <Header 
+          title={`${greeting()}, ${userName}`}
+          subtitle="Your Claims iQ Sidekick dashboard"
+        />
 
-      <Section title="Today's Overview">
+        <Section title="Today's Overview">
         <View style={styles.statsGrid}>
           <View style={[styles.statCard, styles.statCardLarge]}>
             <Text style={styles.statValue}>{stats.totalClaims}</Text>
@@ -199,12 +200,14 @@ export default function HomeScreen() {
           Capture photos, leverage AI-powered damage detection, and manage claims efficiently.
         </Text>
       </Section>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bgSoft },
+  safeArea: { flex: 1, backgroundColor: colors.bgSoft },
+  container: { flex: 1 },
   center: {
     flex: 1,
     alignItems: 'center',

@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, Image, Modal, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, FlatList, Image, Modal, ActivityIndicator, Alert, TextInput, SafeAreaView } from 'react-native';
 import * as CameraLib from 'expo-camera';
 import { File, Paths } from 'expo-file-system';
 import { colors } from '@/theme/colors';
@@ -88,7 +88,7 @@ export default function CaptureScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Header title="Capture" subtitle="Photo • LiDAR • Documents" />
       <View style={styles.segment}>
         <Pressable onPress={() => setMode('capture')} style={[styles.segBtn, mode==='capture' && styles.segActive]}>
@@ -249,7 +249,7 @@ export default function CaptureScreen() {
           }
         }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
