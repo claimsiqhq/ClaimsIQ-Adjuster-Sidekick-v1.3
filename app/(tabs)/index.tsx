@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, SafeAreaView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/config/supabase';
+import { supabase } from '@/utils/supabase';
 import { getSession } from '@/services/auth';
 import { getCurrentLocation, getWeather, type Weather } from '@/services/weather';
 import Header from '@/components/Header';
