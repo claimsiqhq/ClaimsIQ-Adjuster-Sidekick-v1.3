@@ -159,15 +159,7 @@ Return JSON with detected damage, bounding boxes, confidence scores, and photo q
           onChange={(text) => setWorkflow({ ...workflow, prompt: text })}
           onSave={() => savePrompt(workflow)}
           saving={saving}
-          placeholder={`Generate a step-by-step inspection workflow for this claim based on the damage type and severity.
-
-Include:
-1. Required photos to capture
-2. Measurements to take
-3. Safety checks
-4. Documentation needed
-
-Return as a JSON array of inspection steps with titles and descriptions.`}
+          placeholder={`You are generating a complete field inspection workflow for an insurance adjuster...`}
         />
       </ScrollView>
     </SafeAreaView>
