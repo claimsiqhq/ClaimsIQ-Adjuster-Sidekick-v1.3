@@ -83,7 +83,8 @@ export async function uploadDocument(
 }
 
 export async function triggerFNOLExtraction(documentId: string, claimId?: string): Promise<void> {
-  const { data, error } = await supabase.functions.invoke('fnol-extract', {
+  // Use the new edge function that handles PDF to image conversion
+  const { data, error } = await supabase.functions.invoke('fnol-extract-with-conversion', {
     body: { documentId, claimId },
   });
 

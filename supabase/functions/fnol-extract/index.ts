@@ -1,5 +1,6 @@
 // supabase/functions/fnol-extract/index.ts
 // Extracts structured data from FNOL PDF documents using OpenAI Vision
+// Important: PDFs must be converted to images before sending to this function
 // Secrets required: OPENAI_API_KEY
 // Uses SUPABASE_URL / SUPABASE_ANON_KEY from Edge runtime
 
