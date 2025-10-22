@@ -84,6 +84,7 @@ export default function SettingsScreen() {
         <Text style={styles.li}>• Vapi: Not linked</Text>
       </Section>
       <Section title="Preferences">
+        <UnitsRow />
         <Row label="Dark Mode" storageKey={SETTINGS_KEYS.DARK_MODE} />
         <Row label="Auto-upload on Wi-Fi only" storageKey={SETTINGS_KEYS.WIFI_ONLY} />
         <Row label="Embed annotations in report exports" storageKey={SETTINGS_KEYS.EMBED_ANNOTATIONS} />
@@ -107,7 +108,11 @@ export default function SettingsScreen() {
 
 const rowStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.white, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.line, marginBottom: 8, marginHorizontal: 16 },
-  label: { color: colors.core, fontWeight: '500' }
+  label: { color: colors.core, fontWeight: '500' },
+  unitsContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  unitOption: { fontSize: 14, color: colors.textSoft },
+  unitActive: { color: colors.primary, fontWeight: '600' },
+  unitDivider: { color: colors.line }
 });
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgSoft },

@@ -201,9 +201,16 @@ export default function TodayScreen() {
           {weather && (
             <View style={styles.weatherCard}>
               <View style={styles.weatherMain}>
-                <Text style={styles.weatherTemp}>{Math.round(weather.temperature)}°F</Text>
+                <Text style={styles.weatherTemp}>
+                  {Math.round(weather.temperature)}°{weather.units === 'metric' ? 'C' : 'F'}
+                </Text>
                 <Text style={styles.weatherCondition}>{weather.condition}</Text>
-                <Text style={styles.weatherWind}>Wind: {Math.round(weather.windSpeed)} mph</Text>
+                {weather.location && (
+                  <Text style={styles.weatherLocation}>📍 {weather.location}</Text>
+                )}
+                <Text style={styles.weatherWind}>
+                  Wind: {Math.round(weather.windSpeed)} {weather.units === 'metric' ? 'km/h' : 'mph'}
+                </Text>
               </View>
 
               {isSafeForRoofInspection(weather).safe ? (
@@ -354,6 +361,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.core,
     marginTop: 4,
+  },
+  weatherLocation: {
+    fontSize: 14,
+    color: '#5F6771',
+    marginTop: 6,
+    fontWeight: '500',
   },
   weatherWind: {
     fontSize: 13,

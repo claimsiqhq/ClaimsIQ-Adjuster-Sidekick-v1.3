@@ -11,11 +11,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.claimsiq.claimsiqadjustersidekickv13",
+      "config": {
+        "googleMapsApiKey": "$EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Used to capture photos for claims documentation and AI annotations.",
         "NSMicrophoneUsageDescription": "Used for voice notes and live assistant interactions.",
-        "NSPhotoLibraryAddUsageDescription": "Save exported reports and images to your library."
+        "NSPhotoLibraryAddUsageDescription": "Save exported reports and images to your library.",
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to provide weather data and show claims on the map."
       }
     },
     "plugins": [

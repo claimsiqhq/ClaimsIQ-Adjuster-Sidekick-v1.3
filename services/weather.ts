@@ -1,6 +1,8 @@
 // services/weather.ts
 // Weatherbit.io API integration
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY;
 const WEATHER_API_BASE = 'https://api.weatherbit.io/v2.0';
 
@@ -11,6 +13,8 @@ export interface Weather {
   windSpeed: number;
   humidity: number;
   feelsLike: number;
+  location?: string;  // City, State/Country
+  units?: 'metric' | 'imperial';
 }
 
 export interface WeatherAlert {
@@ -38,6 +42,10 @@ export async function getWeather(lat: number, lon: number): Promise<Weather | nu
   }
 
   try {
+    // Get units preference from AsyncStorage
+    const storedUnits = await AsyncStorage.getItem('settings_units');
+    const units = storedUnits === 'metric' ? 'metric' : 'imperial';
+    
     const response = await fetch(
       `${WEATHER_API_BASE}/current?lat=${lat}&lon=${lon}&key=${WEATHER_API_KEY}`
     );
@@ -54,13 +62,31 @@ export async function getWeather(lat: number, lon: number): Promise<Weather | nu
 
     const data = result.data[0];
     
+    // Convert based on units preference
+    const temperature = units === 'imperial' 
+      ? data.temp * 1.8 + 32  // Convert C to F
+      : data.temp;  // Keep as Celsius
+      
+    const windSpeed = units === 'imperial'
+      ? data.wind_spd * 2.237  // Convert m/s to mph
+      : data.wind_spd * 3.6;  // Convert m/s to km/h
+      
+    const feelsLike = units === 'imperial'
+      ? data.app_temp * 1.8 + 32  // Convert C to F
+      : data.app_temp;  // Keep as Celsius
+    
+    // Build location string from city and country/state
+    const location = `${data.city_name}${data.state_code ? `, ${data.state_code}` : ''}${data.country_code ? `, ${data.country_code}` : ''}`;
+    
     return {
-      temperature: data.temp * 1.8 + 32, // Convert Celsius to Fahrenheit
+      temperature,
       condition: data.weather.description,
       icon: data.weather.icon,
-      windSpeed: data.wind_spd * 2.237, // Convert m/s to mph
+      windSpeed,
       humidity: data.rh,
-      feelsLike: data.app_temp * 1.8 + 32,
+      feelsLike,
+      location,
+      units,
     };
   } catch (error: any) {
     console.error('Weather fetch error:', error);
