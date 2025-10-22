@@ -1,4 +1,4 @@
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { getClaims } from '@/services/claims';
@@ -57,7 +57,7 @@ export default function ClaimsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Claims</Text>
         <Pressable 
@@ -92,7 +92,7 @@ export default function ClaimsScreen() {
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
