@@ -1,7 +1,7 @@
 // app/admin/credentials.tsx
 // Admin screen to view and manage embedded credentials
 
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Pressable, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '@/theme/colors';
 import { APP_CREDENTIALS } from '@/config/credentials';
@@ -12,16 +12,17 @@ export default function CredentialsScreen() {
   const router = useRouter();
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </Pressable>
-        <Text style={styles.title}>App Credentials</Text>
-        <View style={{ width: 60 }} />
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </Pressable>
+          <Text style={styles.title}>App Credentials</Text>
+          <View style={{ width: 60 }} />
+        </View>
 
-      <Section title="Supabase Configuration">
+        <Section title="Supabase Configuration">
         <InfoRow label="URL" value={APP_CREDENTIALS.supabase.url} />
         <InfoRow 
           label="Anon Key" 
@@ -60,7 +61,8 @@ export default function CredentialsScreen() {
           To update credentials, modify config/credentials.ts and rebuild.
         </Text>
       </Section>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -74,6 +76,10 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.bgSoft,
