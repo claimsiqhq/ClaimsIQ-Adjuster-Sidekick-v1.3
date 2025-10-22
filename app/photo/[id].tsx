@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView, SafeAreaView } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { getMediaById } from '@/services/media';
@@ -89,9 +89,10 @@ export default function PhotoDetailScreen() {
     }
 
     return (
-        <ScrollView style={styles.container}>
-            <Stack.Screen options={{ title: 'Photo Details' }} />
-            <Image source={{ uri: media.public_url }} style={styles.image} />
+        <SafeAreaView style={styles.safeArea}>
+            <ScrollView style={styles.container}>
+                <Stack.Screen options={{ title: 'Photo Details' }} />
+                <Image source={{ uri: media.public_url }} style={styles.image} />
             
             {media.status === 'annotated' && media.annotations ? (
                 <AnnotationDisplay annotation={media.annotations} />
@@ -105,11 +106,16 @@ export default function PhotoDetailScreen() {
                     <Text style={styles.pendingText}>AI analysis failed or not available.</Text>
                 </View>
             )}
-        </ScrollView>
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
     container: {
         flex: 1,
         backgroundColor: colors.bg,
