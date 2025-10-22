@@ -170,6 +170,24 @@ export async function getWorkflowStats(claimId: string): Promise<{
 /**
  * Delete all workflow steps for a claim (to regenerate)
  */
+export async function getClaimWorkflowMetadata(claimId: string): Promise<any> {
+  const { data, error } = await supabase
+    .from('claims')
+    .select('workflow_metadata')
+    .eq('id', claimId)
+    .single();
+
+  if (error) {
+    console.error('Get workflow metadata error:', error);
+    return null;
+  }
+
+  return data?.workflow_metadata || null;
+}
+
+/**
+ * Delete all workflow steps for a claim (to regenerate)
+ */
 export async function deleteWorkflow(claimId: string): Promise<void> {
   const { error } = await supabase
     .from('inspection_steps')
