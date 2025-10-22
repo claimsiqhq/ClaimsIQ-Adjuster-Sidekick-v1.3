@@ -11,10 +11,26 @@ export interface Weather {
   condition: string;
   icon: string;
   windSpeed: number;
+  windDirection: string;  // Cardinal direction
+  windGust?: number;
   humidity: number;
   feelsLike: number;
   location?: string;  // City, State/Country
   units?: 'metric' | 'imperial';
+  // Additional rich data
+  uvIndex?: number;
+  visibility?: number;
+  pressure?: number;
+  seaLevelPressure?: number;
+  cloudCoverage?: number;
+  precipitation?: number;
+  snow?: number;
+  dewPoint?: number;
+  airQualityIndex?: number;
+  sunrise?: string;
+  sunset?: string;
+  partOfDay?: 'day' | 'night';
+  observationTime?: string;
 }
 
 export interface WeatherAlert {
@@ -78,15 +94,44 @@ export async function getWeather(lat: number, lon: number): Promise<Weather | nu
     // Build location string from city and country/state
     const location = `${data.city_name}${data.state_code ? `, ${data.state_code}` : ''}${data.country_code ? `, ${data.country_code}` : ''}`;
     
+    // Convert additional units
+    const visibility = units === 'imperial'
+      ? data.vis * 0.621371  // Convert km to miles
+      : data.vis;  // Keep as km
+      
+    const dewPoint = units === 'imperial'
+      ? data.dewpt * 1.8 + 32  // Convert C to F
+      : data.dewpt;  // Keep as Celsius
+      
+    const windGust = data.gust ? (units === 'imperial'
+      ? data.gust * 2.237  // Convert m/s to mph
+      : data.gust * 3.6) : undefined;  // Convert m/s to km/h
+    
     return {
       temperature,
       condition: data.weather.description,
       icon: data.weather.icon,
       windSpeed,
+      windDirection: data.wind_cdir_full || data.wind_cdir,
+      windGust,
       humidity: data.rh,
       feelsLike,
       location,
       units,
+      // Additional rich data
+      uvIndex: data.uv,
+      visibility,
+      pressure: data.pres,
+      seaLevelPressure: data.slp,
+      cloudCoverage: data.clouds,
+      precipitation: data.precip,
+      snow: data.snow,
+      dewPoint,
+      airQualityIndex: data.aqi,
+      sunrise: data.sunrise,
+      sunset: data.sunset,
+      partOfDay: data.pod === 'd' ? 'day' : 'night',
+      observationTime: data.ob_time,
     };
   } catch (error: any) {
     console.error('Weather fetch error:', error);
