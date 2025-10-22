@@ -16,10 +16,6 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
-function render(tpl, vars) {
-  return tpl.replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (_, k) => vars[k] ?? "");
-}
-
 /**
  * Convert PDF to images using free unpdf library
  */
@@ -124,40 +120,158 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
     
-    // Default prompt if none exists in database
-    const defaultPrompt = `You are an expert at extracting insurance claim data from FNOL documents.
+    // Comprehensive FNOL extraction prompt
+    const defaultPrompt = `You are extracting structured data from a First Notice of Loss (FNOL) document. 
+Return ONLY a single JSON object that exactly matches the target schema below (same keys, same nesting, same order). 
+Do not include any commentary, explanations, or additional keys.
 
-Extract ALL information from the provided document images and return a JSON object with this EXACT structure:
+DOCUMENT STYLE & LABELS
+- The document is a "Homeowners Vendor Assignment" style FNOL and contains blocks labeled like:
+  - "Date Prepared", "Policy & Insured Information", "Adjuster Information", "Loss Information", 
+    "Reporting Party & Official Reports", "Contact & Witness Information" (if present).
+- Common field labels include (not exhaustive): 
+  "Carrier Name", "Claim Number", "Policy Number", "Policy Period", "Insured Name", 
+  "Insured Mailing Address", "Agency Name", "Agency Phone", 
+  "Adjuster Assigned", "Adjuster E-mail", "Adjuster Phone Number", "Extension", 
+  "Claim Type", "Cause of Loss", "Date of Loss", "Time of Loss", "Loss Location", 
+  "Loss Description", "Description of Damage", "Estimated Loss", 
+  "Reporter's Name", "Caller Type", "Business Phone", "Cell Phone", "E-mail Address", "Extension", 
+  "Reported to Police", "Fire Department Involved". 
+- Page order matters; read all pages, top-to-bottom, left-to-right.
+
+TARGET JSON SCHEMA (exact keys, same order)
 {
+  "assignmentBy": null,
+  "carrierName": null,
+  "datePrepared": null,
   "policyDetails": {
-    "claimNumber": "claim number",
-    "policyNumber": "policy number"
+    "policyNumber": null,
+    "claimNumber": null,
+    "policyPeriod": null
   },
-  "carrierName": "insurance company name",
   "policyHolder": {
-    "insuredName": "insured person's name"
+    "insuredName": null,
+    "insuredAddress": null
+  },
+  "agency": {
+    "agencyName": null,
+    "agencyPhone": null
   },
   "adjustor": {
-    "adjustorAssigned": "adjuster's name",
-    "adjustorEmail": "adjuster's email",
-    "adjustorPhoneNumber": "adjuster's phone"
+    "adjustorAssigned": null,
+    "adjustorEmail": null,
+    "adjustorPhoneNumber": null,
+    "adjustorExtension": null
   },
   "lossDetails": {
-    "lossLocation": "full address of loss",
-    "lossDescription": "detailed description of what happened",
-    "causeOfLoss": "primary cause (e.g., Wind, Water, Fire)",
-    "dateOfLoss": "YYYY-MM-DD format",
-    "timeOfLoss": "HH:MM format if available",
-    "estimatedLoss": "dollar amount if available",
-    "claimType": "type of claim"
+    "claimType": "Property Damage",
+    "causeOfLoss": null,
+    "dateOfLoss": null,
+    "timeOfLoss": null,
+    "lossLocation": null,
+    "lossDescription": null,
+    "descriptionOfDamage": null,
+    "estimatedLoss": null,
+    "additionalInformation": null
   },
   "reporterInfo": {
-    "reportersName": "person who reported",
-    "callerCellPhone": "reporter's phone"
+    "reportersName": null,
+    "callerType": null,
+    "callerHomePhone": null,
+    "callerCellPhone": null,
+    "callerBusinessPhone": null,
+    "callerEmailAddress": null,
+    "callerExtension": null
+  },
+  "officialReports": {
+    "reportedToPolice": null,
+    "policeDepartment": null,
+    "policeReportNumber": null,
+    "fireDepartmentInvolved": null,
+    "fireDepartment": null,
+    "fireReportNumber": null
+  },
+  "additionalContacts": [
+    {
+      "name": null,
+      "address": null,
+      "residencePhone": null,
+      "businessPhone": null,
+      "cellPhone": null,
+      "email": null,
+      "extension": null
+    }
+  ],
+  "miscellaneous": {
+    "buildingInfo": null,
+    "executive": null,
+    "riskManager": null,
+    "claimsContact": null
   }
 }
 
-Be thorough - extract every piece of information visible in the document. Use null for missing fields.`;
+MAPPING RULES
+- assignmentBy: If the header says "Homeowners Vendor Assignment by <Org>", extract <Org>; otherwise null.
+- carrierName: From "Carrier Name".
+- datePrepared: From "Date Prepared".
+- policyDetails.policyNumber: From "Policy Number".
+- policyDetails.claimNumber: From "Claim Number".
+- policyDetails.policyPeriod: Copy the full "Policy Period" string exactly as written (e.g., "MM/DD/YYYY to MM/DD/YYYY").
+- policyHolder.insuredName: From "Insured Name".
+- policyHolder.insuredAddress: From "Insured Mailing Address".
+- agency.agencyName / agency.agencyPhone: From "Agency Name" / "Agency Phone".
+- adjustor.* : From "Adjuster Information". Map "Adjuster Assigned" → adjustorAssigned; 
+  "Adjuster E-mail" → adjustorEmail; "Adjuster Phone Number" → adjustorPhoneNumber; "Extension" → adjustorExtension.
+- lossDetails: 
+  - claimType: If a claim type is explicitly listed, use it. Otherwise default to "Property Damage".
+  - causeOfLoss: From "Cause of Loss".
+  - dateOfLoss / timeOfLoss: From "Date of Loss" / "Time of Loss".
+  - lossLocation: From "Loss Location".
+  - lossDescription: From "Loss Description".
+  - descriptionOfDamage: If a separate "Description of Damage" field exists, extract verbatim; else null.
+  - estimatedLoss: From "Estimated Loss".
+  - additionalInformation: Any extra text in the loss section that doesn't fit elsewhere (e.g., qualifiers like 
+    "Information limited and unverified..."); otherwise null.
+- reporterInfo: 
+  - reportersName: From "Reporter's Name".
+  - callerType: From "Caller Type".
+  - callerHomePhone: From "Home Phone" if present; else null.
+  - callerCellPhone: From "Cell Phone".
+  - callerBusinessPhone: From "Business Phone".
+  - callerEmailAddress: From "E-mail Address".
+  - callerExtension: From "Extension" in the reporting block (not the adjuster block).
+- officialReports:
+  - reportedToPolice / fireDepartmentInvolved: Map "Yes"/"No" to booleans true/false; if absent, null.
+  - policeDepartment, policeReportNumber, fireDepartment, fireReportNumber: If explicitly listed; else null.
+- additionalContacts: 
+  - If the document includes a "Contact & Witness Information" section, push each person as an object. 
+  - If none exist, keep a single object with all fields null (as in schema).
+- miscellaneous: Leave null unless the document explicitly contains such details.
+
+NORMALIZATION RULES
+- Dates: Convert to ISO 8601 date strings "YYYY-MM-DD" when unambiguous (e.g., "07/08/2024" → "2024-07-08"). 
+  If the month/day order is certain from context, convert; if ambiguous, leave the original string.
+- Times: Keep as seen (e.g., "12:00 AM", "5:00 PM").
+- Phones: Normalize to E.164 when possible (US/Canada: "+1XXXXXXXXXX"). If formatting can't be safely inferred, keep original.
+- Emails: Lowercase and trim.
+- Currency: For "Estimated Loss", extract numeric value as a string with currency symbol preserved if present (e.g., "$0.00"). 
+  If the field explicitly says "Initial report, pending inspection", still set estimatedLoss to the numeric/currency literal if present.
+- Booleans: Map "Yes"→true, "No"→false. If blank/missing, null.
+- Text: Preserve punctuation and casing from the document for descriptive fields (lossDescription, descriptionOfDamage).
+
+ROBUSTNESS
+- The PDF may be multi-page. Read all pages and merge fields.
+- Sections may be missing; set those keys to null (do NOT drop keys).
+- Labels may vary slightly (e.g., "Adjuster E-mail" vs "Adjuster Email"); match by meaning.
+- If both "Loss Description" and a narrative paragraph appear, place the labeled line in lossDescription, 
+  and longer narrative or disclaimers in additionalInformation.
+- If a field has multiple instances (e.g., multiple contacts), populate the array accordingly.
+- If OCR noise causes uncertain characters, resolve by context (e.g., email/phone patterns, address patterns, US ZIP formats). 
+  When uncertain, prefer null over hallucination.
+
+OUTPUT
+- Return exactly one JSON object conforming to the schema above.
+- No markdown, no code fences, no extra text.`;
     
     const extractionPrompt = promptData?.template || defaultPrompt;
     
@@ -216,14 +330,14 @@ Be thorough - extract every piece of information visible in the document. Use nu
       extraction_confidence: 0.95
     }).eq("id", payload.documentId);
     
-    // 8) Update associated claim with key fields
+    // 8) Update associated claim with key fields mapped from new structure
     if (doc.claim_id || payload.claimId) {
       const claimId = doc.claim_id || payload.claimId;
       const claimUpdate: any = {
         metadata: extracted
       };
       
-      // Map key fields to columns for easy querying
+      // Map fields from new structure to claim columns
       if (extracted.policyDetails?.claimNumber) {
         claimUpdate.claim_number = extracted.policyDetails.claimNumber;
       }
@@ -255,13 +369,16 @@ Be thorough - extract every piece of information visible in the document. Use nu
         claimUpdate.cause_of_loss = extracted.lossDetails.causeOfLoss;
       }
       if (extracted.lossDetails?.dateOfLoss) {
+        // Convert date string to ISO format if needed
         claimUpdate.loss_date = extracted.lossDetails.dateOfLoss;
       }
       if (extracted.lossDetails?.timeOfLoss) {
         claimUpdate.time_of_loss = extracted.lossDetails.timeOfLoss;
       }
       if (extracted.lossDetails?.estimatedLoss) {
-        claimUpdate.estimated_loss = parseFloat(extracted.lossDetails.estimatedLoss.replace(/[^0-9.-]/g, '')) || null;
+        // Extract numeric value from currency string
+        const numericValue = extracted.lossDetails.estimatedLoss.replace(/[^0-9.-]/g, '');
+        claimUpdate.estimated_loss = parseFloat(numericValue) || null;
       }
       
       await sb.from("claims").update(claimUpdate).eq("id", claimId);
@@ -273,23 +390,41 @@ Be thorough - extract every piece of information visible in the document. Use nu
     if (extracted.lossDetails?.causeOfLoss) {
       const cause = extracted.lossDetails.causeOfLoss.toLowerCase();
       
-      if (cause.includes("water") || cause.includes("flood")) {
+      if (cause.includes("water") || cause.includes("flood") || cause.includes("plumbing")) {
         workflowItems.push(
-          { title: "Document water source", completed: false },
-          { title: "Check for mold", completed: false },
-          { title: "Moisture readings", completed: false }
+          { title: "Document water source and shutoff", completed: false },
+          { title: "Check for mold growth", completed: false },
+          { title: "Moisture readings all affected areas", completed: false },
+          { title: "Photo standing water if present", completed: false }
         );
-      } else if (cause.includes("wind") || cause.includes("storm")) {
+      } else if (cause.includes("wind") || cause.includes("storm") || cause.includes("hail")) {
         workflowItems.push(
           { title: "Inspect roof damage", completed: false },
-          { title: "Check siding/windows", completed: false },
-          { title: "Document debris", completed: false }
+          { title: "Check gutters and downspouts", completed: false },
+          { title: "Document siding/window damage", completed: false },
+          { title: "Photo any debris", completed: false }
         );
-      } else if (cause.includes("fire")) {
+      } else if (cause.includes("fire") || cause.includes("smoke")) {
         workflowItems.push(
           { title: "Document burn patterns", completed: false },
           { title: "Check structural integrity", completed: false },
-          { title: "Inventory damaged items", completed: false }
+          { title: "Inventory damaged items", completed: false },
+          { title: "Photo smoke damage to walls/ceilings", completed: false }
+        );
+      } else if (cause.includes("theft") || cause.includes("vandalism")) {
+        workflowItems.push(
+          { title: "Document point of entry", completed: false },
+          { title: "Photo all damage/vandalism", completed: false },
+          { title: "List missing items", completed: false },
+          { title: "Check for fingerprints preservation", completed: false }
+        );
+      } else {
+        // Generic property damage workflow
+        workflowItems.push(
+          { title: "Overall property photos", completed: false },
+          { title: "Document all damage areas", completed: false },
+          { title: "Measure affected areas", completed: false },
+          { title: "Check for safety hazards", completed: false }
         );
       }
     }
