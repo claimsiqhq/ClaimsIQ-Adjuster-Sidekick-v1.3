@@ -26,6 +26,17 @@ export interface Document {
   metadata: any;
 }
 
+/**
+ * Uploads a document to Supabase storage and creates a corresponding record in the database.
+ * The file is read from the local file system, converted to an ArrayBuffer, and then uploaded.
+ *
+ * @param {string} fileUri - The local URI of the file to be uploaded.
+ * @param {string} fileName - The name of the file.
+ * @param {DocumentType} documentType - The type of the document (e.g., 'fnol', 'estimate').
+ * @param {string} [claimId] - Optional. The ID of the claim this document is associated with.
+ * @returns {Promise<Document>} A promise that resolves to the newly created document record.
+ * @throws {Error} Throws an error if the file upload or database insertion fails.
+ */
 export async function uploadDocument(
   fileUri: string,
   fileName: string,
@@ -45,11 +56,11 @@ export async function uploadDocument(
 
     // Convert base64 to ArrayBuffer for Supabase storage
     const arrayBuffer = decode(base64);
-    
+
     // Get file info for size
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     const fileSize = (fileInfo as any).size || 0;
-    
+
     const { error: uploadError } = await supabase.storage
       .from('documents')
       .upload(storagePath, arrayBuffer, {
@@ -82,6 +93,15 @@ export async function uploadDocument(
   }
 }
 
+/**
+ * Triggers the 'fnol-extract' Supabase Edge Function to process a First Notice of Loss document.
+ * This function initiates an asynchronous process on the backend to extract data from the document.
+ *
+ * @param {string} documentId - The ID of the document to process.
+ * @param {string} [claimId] - Optional. The ID of the claim associated with the document.
+ * @returns {Promise<void>} A promise that resolves when the function has been successfully invoked.
+ * @throws {Error} Throws an error if the function invocation fails or returns an error.
+ */
 export async function triggerFNOLExtraction(documentId: string, claimId?: string): Promise<void> {
   // Use the edge function that handles PDF to image conversion
   const { data, error } = await supabase.functions.invoke('fnol-extract', {
@@ -92,6 +112,12 @@ export async function triggerFNOLExtraction(documentId: string, claimId?: string
   if (!data?.ok) throw new Error(data?.error || 'FNOL extraction failed');
 }
 
+/**
+ * Retrieves a single document by its unique identifier.
+ *
+ * @param {string} id - The ID of the document to retrieve.
+ * @returns {Promise<Document | null>} A promise that resolves to the document object, or null if not found or an error occurs.
+ */
 export async function getDocument(id: string): Promise<Document | null> {
   const { data, error } = await supabase
     .from('documents')
@@ -103,17 +129,24 @@ export async function getDocument(id: string): Promise<Document | null> {
     console.error('Get document error:', error);
     return null;
   }
-  
+
   return data as Document | null;
 }
 
+/**
+ * Lists all documents, with optional filtering by claim ID and document type.
+ *
+ * @param {string} [claimId] - Optional. The ID of the claim to filter documents by.
+ * @param {DocumentType} [documentType] - Optional. The type of document to filter by.
+ * @returns {Promise<Document[]>} A promise that resolves to an array of document objects.
+ */
 export async function listDocuments(claimId?: string, documentType?: DocumentType): Promise<Document[]> {
   let query = supabase.from('documents').select('*');
 
   if (claimId) {
     query = query.eq('claim_id', claimId);
   }
-  
+
   if (documentType) {
     query = query.eq('document_type', documentType);
   }
@@ -130,6 +163,13 @@ export async function listDocuments(claimId?: string, documentType?: DocumentTyp
   return (data || []) as Document[];
 }
 
+/**
+ * Deletes a document from the database and its corresponding file from storage.
+ *
+ * @param {string} id - The ID of the document to delete.
+ * @returns {Promise<void>} A promise that resolves once the document is deleted.
+ * @throws {Error} Throws an error if the document is not found or if the database deletion fails.
+ */
 export async function deleteDocument(id: string): Promise<void> {
   // Get document to find storage path
   const doc = await getDocument(id);
@@ -151,6 +191,12 @@ export async function deleteDocument(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Generates a public URL for a document stored in Supabase storage.
+ *
+ * @param {string | null | undefined} path - The storage path of the document.
+ * @returns {string | null} The public URL of the document, or null if the path is not provided.
+ */
 export function getDocumentPublicUrl(path: string | null | undefined): string | null {
   if (!path) return null;
   const { data } = supabase.storage.from('documents').getPublicUrl(path);

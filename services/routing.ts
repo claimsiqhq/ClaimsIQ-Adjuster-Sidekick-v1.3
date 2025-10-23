@@ -31,7 +31,13 @@ export interface ETA {
 }
 
 /**
- * Create a daily route from claim IDs
+ * Creates a preliminary daily route from a list of claim IDs.
+ * This function fetches the location for each claim, geocodes it to get coordinates,
+ * and then calculates the total distance and estimated duration for the route.
+ * The resulting route is not optimized.
+ *
+ * @param {string[]} claimIds - An array of claim IDs to be included in the route.
+ * @returns {Promise<Route>} A promise that resolves to a `Route` object.
  */
 export async function createDailyRoute(claimIds: string[]): Promise<Route> {
   const stops: Stop[] = [];
@@ -46,10 +52,8 @@ export async function createDailyRoute(claimIds: string[]): Promise<Route> {
 
     if (!claim) continue;
 
-    const address = claim.loss_location || 
-                   (claim.property_address as any)?.address || 
-                   'Unknown';
-    
+    const address = claim.loss_location || (claim.property_address as any)?.address || 'Unknown';
+
     const coordinates = await geocodeAddress(address);
 
     stops.push({
@@ -87,7 +91,13 @@ export async function createDailyRoute(claimIds: string[]): Promise<Route> {
 }
 
 /**
- * Optimize route order using nearest-neighbor algorithm
+ * Optimizes the order of stops in a route using a nearest-neighbor heuristic.
+ * This is a simple and fast algorithm for solving the Traveling Salesperson Problem,
+ * providing a "good enough" solution for daily route planning.
+ *
+ * @param {Stop[]} stops - An array of stops to be ordered.
+ * @param {Coordinates} startLocation - The starting coordinates for the route.
+ * @returns {Promise<Stop[]>} A promise that resolves to an array of stops in an optimized order.
  */
 export async function optimizeRoute(stops: Stop[], startLocation: Coordinates): Promise<Stop[]> {
   if (stops.length <= 2) return stops;
@@ -115,7 +125,7 @@ export async function optimizeRoute(stops: Stop[], startLocation: Coordinates): 
     const nearest = remaining.splice(nearestIndex, 1)[0];
     nearest.order = optimized.length;
     optimized.push(nearest);
-    
+
     if (nearest.coordinates) {
       current = nearest.coordinates;
     }
@@ -125,12 +135,14 @@ export async function optimizeRoute(stops: Stop[], startLocation: Coordinates): 
 }
 
 /**
- * Calculate ETAs for each stop in route
+ * Calculates the Estimated Time of Arrival (ETA) for each stop in a given route.
+ * The calculation is based on a simple model of average travel speed and a fixed duration for each stop.
+ *
+ * @param {Route} route - The route for which to calculate ETAs.
+ * @param {Date} [startTime=new Date()] - The start time for the route. Defaults to the current time.
+ * @returns {Promise<ETA[]>} A promise that resolves to an array of ETA objects for each stop.
  */
-export async function calculateETAs(
-  route: Route,
-  startTime: Date = new Date()
-): Promise<ETA[]> {
+export async function calculateETAs(route: Route, startTime: Date = new Date()): Promise<ETA[]> {
   const etas: ETA[] = [];
   let currentTime = startTime;
 
@@ -164,7 +176,11 @@ export async function calculateETAs(
 }
 
 /**
- * Get traffic data (placeholder for Google Maps API integration)
+ * Fetches real-time traffic data for a given location.
+ * This is a placeholder for a future integration with a service like the Google Maps Traffic API.
+ *
+ * @param {Coordinates} coordinates - The coordinates to get traffic data for.
+ * @returns {Promise<any>} A promise that resolves to mock traffic data.
  */
 export async function getTrafficData(coordinates: Coordinates): Promise<any> {
   // TODO: Integrate with Google Maps Traffic API
@@ -176,14 +192,18 @@ export async function getTrafficData(coordinates: Coordinates): Promise<any> {
 }
 
 /**
- * Save route to database
+ * Saves a route and its details to the database.
+ *
+ * @param {Route} route - The route object to be saved.
+ * @returns {Promise<string>} A promise that resolves to the ID of the newly saved route.
+ * @throws {Error} Throws an error if the database insertion fails.
  */
 export async function saveRoute(route: Route): Promise<string> {
   const { data, error } = await supabase
     .from('routes')
     .insert({
       date: route.date,
-      optimized_order: route.stops.map(s => s.claimId),
+      optimized_order: route.stops.map((s) => s.claimId),
       total_distance_km: route.totalDistance,
       estimated_duration_minutes: route.estimatedDuration,
       metadata: { stops: route.stops },
