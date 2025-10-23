@@ -72,6 +72,12 @@ export async function syncNow(): Promise<SyncResult> {
  *          containing the number of successfully pushed operations and any error messages.
  */
 export async function pushChanges(): Promise<{ count: number; errors: string[] }> {
+  // Check authentication first
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session) {
+    return { count: 0, errors: ['Not authenticated. Please log in again.'] };
+  }
+
   const pending = await getPendingSyncOps();
   const errors: string[] = [];
   let count = 0;

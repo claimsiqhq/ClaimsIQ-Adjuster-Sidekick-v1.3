@@ -79,6 +79,15 @@ export async function uploadDocument(
   mimeType?: string
 ): Promise<Document> {
   try {
+    console.log('[Upload] Starting upload:', { fileUri, fileName, documentType });
+    
+    // Check authentication first
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      throw new Error('Not authenticated. Please log in again.');
+    }
+    console.log('[Upload] User authenticated:', session.user.id);
+    
     // Generate unique storage path
     const timestamp = Date.now();
     const ext = fileName.split('.').pop() || 'pdf';
@@ -87,28 +96,54 @@ export async function uploadDocument(
     // Determine MIME type
     const contentType = mimeType || (ext.toLowerCase() === 'pdf' ? 'application/pdf' : 'image/jpeg');
 
+    // Get file info first
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    const fileSize = (fileInfo as any).size || 0;
+    console.log('[Upload] File info:', { exists: fileInfo.exists, size: fileSize });
+
     // Read file as base64 using Expo FileSystem
+    console.log('[Upload] Reading file as base64...');
     const base64 = await FileSystem.readAsStringAsync(fileUri, {
       encoding: 'base64',
     });
+    console.log('[Upload] Base64 length:', base64.length);
 
     // Convert base64 to Uint8Array for Supabase storage
+    console.log('[Upload] Converting to Uint8Array...');
     const uint8Array = base64ToUint8Array(base64);
+    console.log('[Upload] Uint8Array length:', uint8Array.length);
 
-    // Get file info for size
-    const fileInfo = await FileSystem.getInfoAsync(fileUri);
-    const fileSize = (fileInfo as any).size || 0;
-
-    console.log('[Upload] File details:', { fileName, ext, contentType, fileSize });
-
-    const { error: uploadError } = await supabase.storage
+    console.log('[Upload] Uploading to Supabase storage:', storagePath);
+    console.log('[Upload] Content type:', contentType);
+    console.log('[Upload] Data size:', uint8Array.length, 'bytes');
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
       .from('documents')
       .upload(storagePath, uint8Array, {
         contentType: contentType,
         upsert: false,
       });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      console.error('[Upload] Storage upload failed:', uploadError);
+      console.error('[Upload] Error details:', {
+        message: uploadError.message,
+        statusCode: (uploadError as any).statusCode,
+        details: (uploadError as any).details,
+      });
+      
+      // Check for specific error types
+      if (uploadError.message?.includes('row-level security')) {
+        throw new Error('Storage access denied. Check RLS policies for documents bucket.');
+      } else if (uploadError.message?.includes('Invalid JWT')) {
+        throw new Error('Authentication expired. Please log in again.');
+      } else if (uploadError.message?.includes('Bucket not found')) {
+        throw new Error('Documents storage bucket not found. Please create it in Supabase.');
+      }
+      
+      throw new Error(`Storage upload failed: ${uploadError.message}`);
+    }
+    console.log('[Upload] Storage upload successful:', uploadData);
 
     // Create document record
     const { data, error: insertError } = await supabase

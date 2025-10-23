@@ -74,6 +74,12 @@ export interface MediaFilters {
  */
 export async function uploadPhotoToStorage(localUri: string, path: string): Promise<string> {
   try {
+    // Check authentication first
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      throw new Error('Not authenticated. Please log in again.');
+    }
+
     // Read the file as base64 for React Native compatibility
     const base64 = await FileSystem.readAsStringAsync(localUri, {
       encoding: FileSystem.EncodingType.Base64,
