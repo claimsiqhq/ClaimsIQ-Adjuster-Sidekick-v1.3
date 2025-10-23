@@ -169,19 +169,18 @@ export async function uploadDocument(
 }
 
 /**
- * Triggers the 'fnol-extract' Supabase Edge Function to process a First Notice of Loss document.
- * This function initiates an asynchronous process on the backend to extract data from the document.
- *
+ * Processes a FNOL document to extract claim data and populate the claims table
+ * 
  * @param {string} documentId - The ID of the document to process.
- * @param {string} [claimId] - Optional. The ID of the claim associated with the document.
- * @returns {Promise<void>} A promise that resolves when the function has been successfully invoked.
+ * @param {string} [claimId] - Optional. The ID of the claim to update, or create new if not provided.
+ * @returns {Promise<any>} The extracted FNOL data and claim ID
  * @throws {Error} Throws an error if the function invocation fails or returns an error.
  */
-export async function triggerFNOLExtraction(documentId: string, claimId?: string): Promise<void> {
+export async function triggerFNOLExtraction(documentId: string, claimId?: string): Promise<any> {
   console.log('[FNOL] Starting extraction for document:', documentId);
   
   try {
-    // Use the edge function that handles PDF to image conversion
+    // Call edge function to extract data from PDF
     const { data, error } = await supabase.functions.invoke('fnol-extract', {
       body: { documentId, claimId },
     });
@@ -212,8 +211,128 @@ export async function triggerFNOLExtraction(documentId: string, claimId?: string
     }
     
     console.log('[FNOL] Extraction completed successfully');
+    
+    // Parse the extracted data and create/update the claim
+    if (data?.extraction) {
+      const extracted = data.extraction;
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Map FNOL extracted data to claim columns
+      const claimData: any = {
+        claim_number: extracted.claim_number || extracted.claimNumber,
+        policy_number: extracted.policy_number || extracted.policyNumber,
+        
+        // Insured information
+        insured_name: extracted.insured_name || extracted.insuredName,
+        insured_phone: extracted.insured_phone || extracted.insuredPhone || extracted.insuredCellPhone,
+        insured_email: extracted.insured_email || extracted.insuredEmail,
+        insured_address: extracted.insured_address || extracted.insuredAddress || extracted.insuredMailingAddress,
+        
+        // Loss information
+        loss_date: extracted.loss_date || extracted.lossDate || extracted.dateOfLoss,
+        loss_time: extracted.loss_time || extracted.lossTime || extracted.timeOfLoss,
+        loss_address: extracted.loss_address || extracted.lossAddress || extracted.lossLocation,
+        loss_description: extracted.loss_description || extracted.lossDescription,
+        loss_type: extracted.loss_type || extracted.lossType || extracted.claimType || extracted.causeOfLoss,
+        
+        // Adjuster information
+        adjuster_name: extracted.adjuster_name || extracted.adjusterName || extracted.adjusterAssigned,
+        adjuster_phone: extracted.adjuster_phone || extracted.adjusterPhone,
+        adjuster_email: extracted.adjuster_email || extracted.adjusterEmail,
+        
+        // Carrier/Agency information
+        carrier_name: extracted.carrier_name || extracted.carrierName,
+        agency_name: extracted.agency_name || extracted.agencyName,
+        agency_phone: extracted.agency_phone || extracted.agencyPhone,
+        
+        // Policy dates
+        policy_start_date: extracted.policy_start_date || extracted.policyStartDate || extracted.policyPeriod?.start,
+        policy_end_date: extracted.policy_end_date || extracted.policyEndDate || extracted.policyPeriod?.end,
+        
+        // Additional fields
+        estimated_loss: extracted.estimated_loss || extracted.estimatedLoss,
+        status: 'pending',
+        user_id: session?.user?.id,
+      };
+      
+      // Remove null/undefined values
+      Object.keys(claimData).forEach(key => {
+        if (claimData[key] === null || claimData[key] === undefined) {
+          delete claimData[key];
+        }
+      });
+      
+      console.log('[FNOL] Mapped claim data:', claimData);
+      
+      // Create or update the claim with extracted data
+      if (claimId) {
+        // Update existing claim
+        const { data: updatedClaim, error: updateError } = await supabase
+          .from('claims')
+          .update(claimData)
+          .eq('id', claimId)
+          .select('*')
+          .single();
+          
+        if (updateError) {
+          console.error('[FNOL] Failed to update claim:', updateError);
+          throw new Error(`Failed to update claim: ${updateError.message}`);
+        }
+        
+        console.log('[FNOL] Updated claim with extracted data:', updatedClaim.id);
+        
+        // Update document with extraction results
+        await supabase
+          .from('documents')
+          .update({
+            extracted_data: extracted,
+            extraction_status: 'completed',
+            claim_id: claimId,
+          })
+          .eq('id', documentId);
+        
+        return { claimId, extracted, claim: updatedClaim };
+      } else {
+        // Create new claim with extracted data
+        const { data: newClaim, error: createError } = await supabase
+          .from('claims')
+          .insert(claimData)
+          .select('*')
+          .single();
+          
+        if (createError) {
+          console.error('[FNOL] Failed to create claim:', createError);
+          throw new Error(`Failed to create claim: ${createError.message}`);
+        }
+        
+        console.log('[FNOL] Created new claim with extracted data:', newClaim.id);
+        
+        // Update document with extraction results and link to new claim
+        await supabase
+          .from('documents')
+          .update({
+            extracted_data: extracted,
+            extraction_status: 'completed',
+            claim_id: newClaim.id,
+          })
+          .eq('id', documentId);
+        
+        return { claimId: newClaim.id, extracted, claim: newClaim };
+      }
+    }
+    
+    return { claimId, extracted: null };
   } catch (error: any) {
     console.error('[FNOL] Caught error during extraction:', error);
+    
+    // Mark document as failed
+    await supabase
+      .from('documents')
+      .update({
+        extraction_status: 'error',
+        extraction_error: error.message,
+      })
+      .eq('id', documentId);
     
     // Check if it's a network/deployment issue
     if (error.message?.includes('Failed to invoke function')) {
