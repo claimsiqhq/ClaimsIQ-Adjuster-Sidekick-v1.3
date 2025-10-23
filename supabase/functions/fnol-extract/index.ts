@@ -134,7 +134,6 @@ Deno.serve(async (req) => {
       }
     });
 
-    if (!sb) throw new Error("Failed to initialize Supabase client");
     
     // 1) Get document record
     const { data: doc, error: docErr } = await sb
