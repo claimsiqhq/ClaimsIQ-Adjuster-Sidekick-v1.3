@@ -66,55 +66,64 @@ export default function DocumentUploadScreen() {
 
       Alert.alert('Success', 'Document uploaded successfully!');
 
-      // If it's an FNOL, trigger extraction
+      // If it's an FNOL, automatically extract data and populate claim
       if (selectedType === 'fnol') {
         setUploading(false);
         setProcessing(true);
         
-        Alert.alert(
-          'Process FNOL?',
-          'Do you want to extract claim data from this FNOL document using AI?',
-          [
-            { text: 'Not Now', style: 'cancel', onPress: () => {
-              setProcessing(false);
-              router.back();
-            }},
-            { text: 'Extract Data', onPress: async () => {
-              try {
-                await triggerFNOLExtraction(document.id, claimId);
-                Alert.alert('Success', 'FNOL data extracted! Check claim details.');
-                router.back();
-              } catch (error: any) {
-                console.error('[FNOL] Extraction error:', error);
-                
-                // Show detailed error with deployment guidance
-                if (error.message.includes('Edge function')) {
-                  Alert.alert(
-                    'Edge Functions Not Deployed',
-                    error.message,
-                    [
-                      { text: 'View Guide', onPress: () => {
-                        Alert.alert(
-                          'Quick Setup',
-                          '1. Install Supabase CLI\n' +
-                          '2. Run: supabase link --project-ref lyppkkpawalcchbgbkxg\n' +
-                          '3. Set OPENAI_API_KEY secret in Supabase\n' +
-                          '4. Run: supabase functions deploy fnol-extract\n\n' +
-                          'See DEPLOYMENT_GUIDE.md for full instructions.'
-                        );
-                      }},
-                      { text: 'OK' }
-                    ]
-                  );
-                } else {
-                  Alert.alert('Extraction Error', error.message);
+        try {
+          Alert.alert('Processing', 'Extracting claim data from FNOL...');
+          
+          // Extract data and create/update claim with all fields populated
+          const result = await triggerFNOLExtraction(document.id, claimId);
+          
+          if (result?.claim) {
+            const claim = result.claim;
+            Alert.alert(
+              'FNOL Processed Successfully!',
+              `Claim ${claim.claim_number} has been created with:\n` +
+              `• Policy #: ${claim.policy_number || 'Not found'}\n` +
+              `• Insured: ${claim.insured_name || 'Not found'}\n` +
+              `• Loss Date: ${claim.loss_date || 'Not found'}\n` +
+              `• Adjuster: ${claim.adjuster_name || 'Not found'}\n\n` +
+              'All available data from the FNOL has been extracted and saved.',
+              [
+                { 
+                  text: 'View Claim', 
+                  onPress: () => router.push(`/(tabs)/claims`)
                 }
-              } finally {
-                setProcessing(false);
-              }
-            }},
-          ]
-        );
+              ]
+            );
+          } else {
+            Alert.alert('Success', 'FNOL uploaded and processed!');
+            router.back();
+          }
+        } catch (error: any) {
+          console.error('[FNOL] Extraction error:', error);
+          
+          // Show detailed error with deployment guidance
+          if (error.message.includes('Edge function')) {
+            Alert.alert(
+              'Edge Functions Not Deployed',
+              'The AI extraction feature requires deployed edge functions.\n\n' +
+              'To enable this feature:\n' +
+              '1. Install Supabase CLI\n' +
+              '2. Link to your project\n' +
+              '3. Set OPENAI_API_KEY in Supabase\n' +
+              '4. Deploy edge functions\n\n' +
+              'The document was uploaded but claim fields were not populated.',
+              [{ text: 'OK', onPress: () => router.back() }]
+            );
+          } else {
+            Alert.alert(
+              'Extraction Failed', 
+              `The document was uploaded but extraction failed: ${error.message}`,
+              [{ text: 'OK', onPress: () => router.back() }]
+            );
+          }
+        } finally {
+          setProcessing(false);
+        }
       } else {
         setUploading(false);
         router.back();
