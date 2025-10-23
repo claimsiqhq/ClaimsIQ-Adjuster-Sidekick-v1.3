@@ -67,33 +67,6 @@ export default function CaptureScreen() {
     });
   }, [items, typeFilter, statusFilter]);
 
-  // Clear invalid selections when filters change
-  useEffect(() => {
-    // Build filtered list based on current filters
-    const currentFiltered = items.filter(i => {
-      const tOk = typeFilter === 'all' ? true : i.type === typeFilter;
-      const sOk = statusFilter === 'all' ? true : i.status === statusFilter;
-      return tOk && sOk;
-    });
-    
-    // Keep only selected items that are still visible after filtering
-    const filteredIds = new Set(currentFiltered.map(item => item.id));
-    setSelected(prev => {
-      const newSelected = new Set<string>();
-      prev.forEach(id => {
-        if (filteredIds.has(id)) {
-          newSelected.add(id);
-        }
-      });
-      return newSelected;
-    });
-    
-    // Exit selection mode if no items remain selected
-    if (selected.size > 0 && currentFiltered.filter(item => selected.has(item.id)).length === 0) {
-      setSelecting(false);
-    }
-  }, [typeFilter, statusFilter, items]); // React to filter or items changes
-
   const onOpenCamera = async () => {
     const { granted } = permission ?? {};
     if (!granted) {
