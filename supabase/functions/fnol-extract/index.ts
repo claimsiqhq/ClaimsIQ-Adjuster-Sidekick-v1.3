@@ -22,27 +22,90 @@ const CORS = {
  */
 async function convertPDFToImages(pdfData: Uint8Array): Promise<string[]> {
   try {
+    console.log("Starting PDF to image conversion");
     const { getDocument } = await getResolvedPDFJS();
     const pdf = await getDocument(pdfData).promise;
-    
+
     // Process up to 10 pages for FNOL documents
     const maxPages = Math.min(pdf.numPages, 10);
-    const imageBuffers: Uint8Array[] = [];
-    
+    const renderedPages: Array<unknown> = [];
+
     for (let i = 1; i <= maxPages; i++) {
       console.log(`Converting page ${i} of ${maxPages}`);
-      const imageBuffer = await renderPageAsImage(pdfData, i, {
+      const imageResult = await renderPageAsImage(pdfData, i, {
         scale: 2.0, // High quality for text extraction
       });
-      imageBuffers.push(imageBuffer);
+
+      const resultSummary = {
+        type: imageResult?.constructor?.name ?? typeof imageResult,
+        isString: typeof imageResult === "string",
+        isUint8Array: imageResult instanceof Uint8Array,
+        hasBase64: typeof (imageResult as any)?.base64 === "string",
+        hasDataUrl: typeof (imageResult as any)?.dataUrl === "string"
+      };
+      console.log(`renderPageAsImage result for page ${i}:`, resultSummary);
+
+      renderedPages.push(imageResult);
     }
-    
-    // Convert buffers to base64 data URLs for OpenAI
-    const base64Images = imageBuffers.map(buffer => {
-      const base64 = encode(buffer);
-      return `data:image/png;base64,${base64}`;
+
+    // Normalize render results to base64 data URLs for OpenAI
+    const base64Images = renderedPages.map((pageResult, index) => {
+      try {
+        let dataUrl: string | undefined;
+
+        if (typeof pageResult === "string") {
+          console.log(`Page ${index + 1}: render result is string (dataUrl=${pageResult.startsWith("data:")})`);
+          dataUrl = pageResult.startsWith("data:")
+            ? pageResult
+            : `data:image/png;base64,${pageResult}`;
+        } else if (pageResult instanceof Uint8Array) {
+          console.log(`Page ${index + 1}: render result is Uint8Array with length ${pageResult.length}`);
+          dataUrl = `data:image/png;base64,${encode(pageResult)}`;
+        } else if (pageResult && typeof pageResult === "object") {
+          const base64Value = typeof (pageResult as any).base64 === "string"
+            ? (pageResult as any).base64
+            : typeof (pageResult as any).dataUrl === "string"
+              ? (pageResult as any).dataUrl
+              : undefined;
+
+          if (base64Value) {
+            console.log(`Page ${index + 1}: render result provided base64/dataUrl directly (prefixed=${base64Value.startsWith("data:")})`);
+            dataUrl = base64Value.startsWith("data:")
+              ? base64Value
+              : `data:image/png;base64,${base64Value}`;
+          } else {
+            const bufferCandidate = (pageResult as any).buffer ?? (pageResult as any).data ?? (pageResult as any).arrayBuffer;
+            if (bufferCandidate) {
+              console.log(`Page ${index + 1}: render result provided buffer-like data`);
+              let array: Uint8Array;
+              if (bufferCandidate instanceof Uint8Array) {
+                array = bufferCandidate;
+              } else if (bufferCandidate instanceof ArrayBuffer) {
+                array = new Uint8Array(bufferCandidate);
+              } else if (typeof bufferCandidate === "function") {
+                const resolved = bufferCandidate();
+                array = resolved instanceof Uint8Array
+                  ? resolved
+                  : new Uint8Array(resolved);
+              } else {
+                array = new Uint8Array(bufferCandidate);
+              }
+              dataUrl = `data:image/png;base64,${encode(array)}`;
+            }
+          }
+        }
+
+        if (!dataUrl) {
+          throw new Error(`Unsupported renderPageAsImage result (page ${index + 1})`);
+        }
+
+        return dataUrl;
+      } catch (innerError) {
+        console.error(`Failed to normalize rendered image for page ${index + 1}`, innerError);
+        throw innerError;
+      }
     });
-    
+
     console.log(`Successfully converted ${base64Images.length} pages to images`);
     return base64Images;
   } catch (error) {
@@ -53,20 +116,25 @@ async function convertPDFToImages(pdfData: Uint8Array): Promise<string[]> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  
+
+  let payload: any;
+  let sb: ReturnType<typeof createClient> | undefined;
+
   try {
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not set");
-    
-    const payload = await req.json();
+
+    payload = await req.json();
     if (!payload?.documentId) throw new Error("documentId required");
-    
-    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+
+    sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
         headers: {
           Authorization: req.headers.get("Authorization") ?? ""
         }
       }
     });
+
+    if (!sb) throw new Error("Failed to initialize Supabase client");
     
     // 1) Get document record
     const { data: doc, error: docErr } = await sb
@@ -277,12 +345,14 @@ OUTPUT
     const extractionPrompt = promptData?.template || defaultPrompt;
     
     // Prepare image content for OpenAI
+    console.log(`Preparing OpenAI request with ${imageUrls.length} image(s)`);
     const imageContent = imageUrls.map(url => ({
       type: "image_url",
       image_url: { url }
     }));
-    
+
     // 5) Call OpenAI Vision API with SINGLE prompt
+    console.log("Sending request to OpenAI vision model");
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -304,7 +374,9 @@ OUTPUT
         max_tokens: 4000
       })
     });
-    
+
+    console.log(`OpenAI response received with status ${res.status}`);
+
     if (!res.ok) {
       const errorText = await res.text();
       throw new Error(`OpenAI API error: ${errorText}`);
@@ -454,8 +526,8 @@ OUTPUT
     });
     
   } catch (error) {
-    console.error("Error:", error.message);
-    
+    console.error("Error during FNOL extraction:", error);
+
     // Mark document as failed if we have documentId
     if (payload?.documentId && sb) {
       await sb.from("documents").update({
