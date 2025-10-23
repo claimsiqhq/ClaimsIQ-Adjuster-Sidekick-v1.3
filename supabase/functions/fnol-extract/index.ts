@@ -5,6 +5,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { renderPageAsImage, getResolvedPDFJS } from "npm:unpdf@0.12.0";
 import { encode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 
@@ -117,14 +118,14 @@ async function convertPDFToImages(pdfData: Uint8Array): Promise<string[]> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
-  let payload: any;
-  let sb: ReturnType<typeof createClient> | undefined;
+  let payload: { documentId?: string; claimId?: string } | null = null;
+  let sb: SupabaseClient | null = null;
 
   try {
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not set");
 
     payload = await req.json();
-    if (!payload?.documentId) throw new Error("documentId required");
+    if (!payload || !payload.documentId) throw new Error("documentId required");
 
     sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
@@ -134,6 +135,7 @@ Deno.serve(async (req) => {
       }
     });
 
+    if (!sb) throw new Error("Failed to create Supabase client");
     
     // 1) Get document record
     const { data: doc, error: docErr } = await sb

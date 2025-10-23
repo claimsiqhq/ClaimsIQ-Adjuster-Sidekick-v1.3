@@ -19,7 +19,12 @@ export interface SyncResult {
 }
 
 /**
- * Full bidirectional sync
+ * Performs a full bidirectional synchronization between the local database and the Supabase backend.
+ * This function first pushes any pending local changes to the remote, and then pulls the latest
+ * data from the remote to the local database.
+ *
+ * @returns {Promise<SyncResult>} A promise that resolves to a `SyncResult` object, detailing the
+ *          outcome of the sync operation, including counts of pushed and pulled records and any errors.
  */
 export async function syncNow(): Promise<SyncResult> {
   if (!isOnline()) {
@@ -59,7 +64,12 @@ export async function syncNow(): Promise<SyncResult> {
 }
 
 /**
- * Push queued local changes to Supabase
+ * Processes the queue of pending local changes and pushes them to the Supabase backend.
+ * It iterates through each queued operation, attempts to apply it to the remote database,
+ * and then marks it as either completed or failed.
+ *
+ * @returns {Promise<{ count: number; errors: string[] }>} A promise that resolves to an object
+ *          containing the number of successfully pushed operations and any error messages.
  */
 export async function pushChanges(): Promise<{ count: number; errors: string[] }> {
   const pending = await getPendingSyncOps();
@@ -94,7 +104,11 @@ export async function pushChanges(): Promise<{ count: number; errors: string[] }
 }
 
 /**
- * Pull changes from Supabase to local database
+ * Fetches the latest data (claims and media) from the Supabase backend and saves it
+ * to the local SQLite database. This ensures that the local data is up-to-date with the remote.
+ *
+ * @returns {Promise<{ count: number; errors: string[] }>} A promise that resolves to an object
+ *          containing the total number of records pulled and any error messages.
  */
 export async function pullChanges(): Promise<{ count: number; errors: string[] }> {
   const errors: string[] = [];
@@ -140,18 +154,28 @@ export async function pullChanges(): Promise<{ count: number; errors: string[] }
 }
 
 /**
- * Conflict resolution: last-write-wins strategy
+ * A simple conflict resolution strategy based on the 'last write wins' principle.
+ * It compares the `updated_at` timestamps of local and remote versions of a record
+ * and returns the more recent one.
+ *
+ * @param {any} localVersion - The local version of the record.
+ * @param {any} remoteVersion - The remote version of the record.
+ * @returns {Promise<any>} A promise that resolves to the version that should be kept.
  */
 export async function resolveConflict(localVersion: any, remoteVersion: any): Promise<any> {
   const localTime = new Date(localVersion.updated_at).getTime();
   const remoteTime = new Date(remoteVersion.updated_at).getTime();
-  
+
   // Use the most recently updated version
   return remoteTime > localTime ? remoteVersion : localVersion;
 }
 
 /**
- * Get sync statistics
+ * Retrieves statistics about the current synchronization status, such as the number
+ * of pending operations.
+ *
+ * @returns {Promise<{ pendingOperations: number; lastSyncTime: null; hasUnsyncedChanges: boolean }>}
+ *          A promise that resolves to an object with sync statistics.
  */
 export async function getSyncStats() {
   const pending = await getPendingSyncOps();
