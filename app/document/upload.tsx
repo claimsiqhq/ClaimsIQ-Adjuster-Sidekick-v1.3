@@ -1,6 +1,6 @@
 // app/document/upload.tsx
 import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView, SafeAreaView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView, SafeAreaView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { colors } from '@/theme/colors';
@@ -26,20 +26,6 @@ export default function DocumentUploadScreen() {
   ];
 
   async function pickDocument() {
-    // Check if running on web platform
-    if (Platform.OS === 'web') {
-      Alert.alert(
-        'iOS Only Feature',
-        'Document upload is only available on iOS devices.\n\n' +
-        'To test this feature:\n' +
-        '1. Build the app for iOS\n' +
-        '2. Run on device or simulator\n\n' +
-        'See DEPLOYMENT_GUIDE.md for edge function setup.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
@@ -56,11 +42,7 @@ export default function DocumentUploadScreen() {
       }
     } catch (error: any) {
       console.error('[DocumentPicker] Error:', error);
-      Alert.alert(
-        'Document Picker Error',
-        'Failed to pick document: ' + error.message + '\n\n' +
-        'If testing on web, use iOS device instead.'
-      );
+      Alert.alert('Error', 'Failed to pick document: ' + error.message);
     }
   }
 
