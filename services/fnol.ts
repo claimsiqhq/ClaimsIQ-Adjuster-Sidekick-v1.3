@@ -94,7 +94,13 @@ export interface ClaimUpdate {
 }
 
 /**
- * Map FNOL extracted data to claims table columns
+ * Maps extracted First Notice of Loss (FNOL) data to a format suitable for updating the claims table.
+ * This function takes the detailed FNOL data structure and flattens it into a `ClaimUpdate` object,
+ * which can be used directly in a database update operation. It also stores the complete, original FNOL
+ * data in the `metadata` field for archival purposes.
+ *
+ * @param {FNOLData} fnolData - The structured FNOL data extracted from a document.
+ * @returns {ClaimUpdate} An object with fields mapped to the claims table columns.
  */
 export function mapFNOLToClaim(fnolData: FNOLData): ClaimUpdate {
   const update: ClaimUpdate = {
@@ -158,9 +164,15 @@ export function mapFNOLToClaim(fnolData: FNOLData): ClaimUpdate {
 }
 
 /**
- * Validate FNOL JSON structure
+ * Validates the structure and presence of required fields in a First Notice of Loss (FNOL) data object.
+ * This function checks for the existence of key sections such as policy details, policyholder, loss details,
+ * and reporter information. It provides a simple way to ensure the integrity of the data before processing.
+ *
+ * @param {any} data - The FNOL data object to be validated.
+ * @returns {{ valid: boolean; errors: string[] }} An object containing a boolean indicating validity
+ *          and an array of strings describing any validation errors.
  */
-export function validateFNOL(data: any): { valid: boolean; errors: string[] } {
+export function validateFNOL(data: any): { valid: boolean; errors:string[] } {
   const errors: string[] = [];
 
   if (!data || typeof data !== 'object') {
@@ -179,7 +191,7 @@ export function validateFNOL(data: any): { valid: boolean; errors: string[] } {
   if (data.policyDetails && typeof data.policyDetails !== 'object') {
     errors.push('policyDetails must be an object');
   }
-  
+
   if (data.additionalContacts && !Array.isArray(data.additionalContacts)) {
     errors.push('additionalContacts must be an array');
   }
@@ -191,8 +203,13 @@ export function validateFNOL(data: any): { valid: boolean; errors: string[] } {
 }
 
 /**
- * Get confidence score for extracted data
- * Based on number of filled fields vs total fields
+ * Calculates a confidence score for the extracted First Notice of Loss (FNOL) data.
+ * The score is determined by the ratio of filled (non-empty) fields to the total number of fields
+ * in the data structure. This provides a quantitative measure of the completeness and quality of the
+ * extracted information.
+ *
+ * @param {FNOLData} data - The FNOL data for which to calculate the confidence score.
+ * @returns {number} A confidence score between 0 and 1, where 1 indicates that all fields are filled.
  */
 export function calculateFNOLConfidence(data: FNOLData): number {
   let filled = 0;
@@ -200,11 +217,11 @@ export function calculateFNOLConfidence(data: FNOLData): number {
 
   function countFields(obj: any, skipArrays = false): void {
     if (!obj || typeof obj !== 'object') return;
-    
+
     for (const [key, value] of Object.entries(obj)) {
       if (Array.isArray(value)) {
         if (!skipArrays && value.length > 0) {
-          value.forEach(item => countFields(item, true));
+          value.forEach((item) => countFields(item, true));
         }
       } else if (value && typeof value === 'object') {
         countFields(value);
@@ -218,7 +235,7 @@ export function calculateFNOLConfidence(data: FNOLData): number {
   }
 
   countFields(data);
-  
+
   return total > 0 ? filled / total : 0;
 }
 
