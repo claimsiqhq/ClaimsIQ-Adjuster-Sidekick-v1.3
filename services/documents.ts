@@ -1,10 +1,44 @@
 // services/documents.ts
 import { supabase } from '@/utils/supabase';
 import * as FileSystem from 'expo-file-system';
-import { decode } from 'base64-arraybuffer';
 
 export type DocumentType = 'fnol' | 'estimate' | 'photo' | 'report' | 'invoice' | 'correspondence' | 'other';
 export type ExtractionStatus = 'pending' | 'processing' | 'completed' | 'error';
+
+// Helper function to convert base64 to Uint8Array that works in React Native
+function base64ToUint8Array(base64: string): Uint8Array {
+  // This implementation works in React Native without atob
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const lookup = new Uint8Array(256);
+  for (let i = 0; i < chars.length; i++) {
+    lookup[chars.charCodeAt(i)] = i;
+  }
+  
+  // Remove padding and calculate buffer size
+  let bufferLength = base64.length * 0.75;
+  if (base64[base64.length - 1] === '=') {
+    bufferLength--;
+    if (base64[base64.length - 2] === '=') {
+      bufferLength--;
+    }
+  }
+  
+  const bytes = new Uint8Array(bufferLength);
+  let p = 0;
+  
+  for (let i = 0; i < base64.length; i += 4) {
+    const encoded1 = lookup[base64.charCodeAt(i)];
+    const encoded2 = lookup[base64.charCodeAt(i + 1)];
+    const encoded3 = lookup[base64.charCodeAt(i + 2)];
+    const encoded4 = lookup[base64.charCodeAt(i + 3)];
+    
+    bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+    if (encoded3 !== 64) bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+    if (encoded4 !== 64) bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+  }
+  
+  return bytes;
+}
 
 export interface Document {
   id: string;
@@ -49,21 +83,22 @@ export async function uploadDocument(
     const ext = fileName.split('.').pop() || 'pdf';
     const storagePath = `documents/${timestamp}_${fileName}`;
 
+    // Get file info for size
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    const fileSize = (fileInfo as any).size || 0;
+
     // Read file as base64 using Expo FileSystem
     const base64 = await FileSystem.readAsStringAsync(fileUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
 
-    // Convert base64 to ArrayBuffer for Supabase storage
-    const arrayBuffer = decode(base64);
+    // Convert base64 to Uint8Array using our React Native-compatible function
+    const uint8Array = base64ToUint8Array(base64);
 
-    // Get file info for size
-    const fileInfo = await FileSystem.getInfoAsync(fileUri);
-    const fileSize = (fileInfo as any).size || 0;
-
-    const { error: uploadError } = await supabase.storage
+    // Upload to Supabase storage
+    const { error: uploadError, data: uploadData } = await supabase.storage
       .from('documents')
-      .upload(storagePath, arrayBuffer, {
+      .upload(storagePath, uint8Array, {
         contentType: 'application/pdf',
         upsert: false,
       });
