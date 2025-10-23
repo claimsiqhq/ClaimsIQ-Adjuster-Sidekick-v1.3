@@ -1,6 +1,6 @@
 // app/document/upload.tsx
 import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView, SafeAreaView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { colors } from '@/theme/colors';
@@ -26,6 +26,20 @@ export default function DocumentUploadScreen() {
   ];
 
   async function pickDocument() {
+    // Check if running on web platform
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        'iOS Only Feature',
+        'Document upload is only available on iOS devices.\n\n' +
+        'To test this feature:\n' +
+        '1. Build the app for iOS\n' +
+        '2. Run on device or simulator\n\n' +
+        'See DEPLOYMENT_GUIDE.md for edge function setup.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
@@ -41,7 +55,12 @@ export default function DocumentUploadScreen() {
         });
       }
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to pick document: ' + error.message);
+      console.error('[DocumentPicker] Error:', error);
+      Alert.alert(
+        'Document Picker Error',
+        'Failed to pick document: ' + error.message + '\n\n' +
+        'If testing on web, use iOS device instead.'
+      );
     }
   }
 
@@ -83,7 +102,30 @@ export default function DocumentUploadScreen() {
                 Alert.alert('Success', 'FNOL data extracted! Check claim details.');
                 router.back();
               } catch (error: any) {
-                Alert.alert('Extraction Error', error.message);
+                console.error('[FNOL] Extraction error:', error);
+                
+                // Show detailed error with deployment guidance
+                if (error.message.includes('Edge function')) {
+                  Alert.alert(
+                    'Edge Functions Not Deployed',
+                    error.message,
+                    [
+                      { text: 'View Guide', onPress: () => {
+                        Alert.alert(
+                          'Quick Setup',
+                          '1. Install Supabase CLI\n' +
+                          '2. Run: supabase link --project-ref lyppkkpawalcchbgbkxg\n' +
+                          '3. Set OPENAI_API_KEY secret in Supabase\n' +
+                          '4. Run: supabase functions deploy fnol-extract\n\n' +
+                          'See DEPLOYMENT_GUIDE.md for full instructions.'
+                        );
+                      }},
+                      { text: 'OK' }
+                    ]
+                  );
+                } else {
+                  Alert.alert('Extraction Error', error.message);
+                }
               } finally {
                 setProcessing(false);
               }

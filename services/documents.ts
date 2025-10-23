@@ -137,13 +137,50 @@ export async function uploadDocument(
  * @throws {Error} Throws an error if the function invocation fails or returns an error.
  */
 export async function triggerFNOLExtraction(documentId: string, claimId?: string): Promise<void> {
-  // Use the edge function that handles PDF to image conversion
-  const { data, error } = await supabase.functions.invoke('fnol-extract', {
-    body: { documentId, claimId },
-  });
+  console.log('[FNOL] Starting extraction for document:', documentId);
+  
+  try {
+    // Use the edge function that handles PDF to image conversion
+    const { data, error } = await supabase.functions.invoke('fnol-extract', {
+      body: { documentId, claimId },
+    });
 
-  if (error) throw error;
-  if (!data?.success) throw new Error(data?.error || 'FNOL extraction failed');
+    console.log('[FNOL] Edge function response:', { data, error });
+
+    if (error) {
+      // Provide detailed error information
+      const errorDetails = [
+        `Edge Function Error: ${error.message || 'Unknown error'}`,
+        '',
+        'Common causes:',
+        '1. Edge functions not deployed to Supabase',
+        '2. OPENAI_API_KEY not configured in Supabase',
+        '3. Network connectivity issues',
+        '',
+        'To fix: Deploy edge functions via Supabase CLI',
+      ].join('\n');
+      
+      console.error('[FNOL] Extraction failed:', error);
+      throw new Error(errorDetails);
+    }
+    
+    if (!data?.success) {
+      const errorMessage = data?.error || 'FNOL extraction failed';
+      console.error('[FNOL] Extraction unsuccessful:', errorMessage);
+      throw new Error(`Extraction failed: ${errorMessage}`);
+    }
+    
+    console.log('[FNOL] Extraction completed successfully');
+  } catch (error: any) {
+    console.error('[FNOL] Caught error during extraction:', error);
+    
+    // Check if it's a network/deployment issue
+    if (error.message?.includes('Failed to invoke function')) {
+      throw new Error('Edge function not deployed. See DEPLOYMENT_GUIDE.md for setup instructions.');
+    }
+    
+    throw error;
+  }
 }
 
 /**
