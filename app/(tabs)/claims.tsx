@@ -1,17 +1,11 @@
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { getClaims } from '@/services/claims';
+import { getClaims, Claim } from '@/services/claims';
 import { useAuth } from '@/hooks/useAuth';
 import { useClaimStore } from '@/store/useClaimStore';
 import { colors } from '@/theme/colors';
 import { handleAppError } from '@/utils/errors';
-
-type Claim = {
-  id: string;
-  claim_number: string;
-  policy_number: string;
-};
 
 export default function ClaimsScreen() {
   const router = useRouter();
@@ -70,12 +64,49 @@ export default function ClaimsScreen() {
       <FlatList
         data={claims}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <Pressable style={styles.itemContainer} onPress={() => handleSelectClaim(item.id)}>
-            <Text style={styles.itemTitle}>{item.claim_number}</Text>
-            <Text style={styles.itemSubtitle}>Policy: {item.policy_number}</Text>
-          </Pressable>
-        )}
+        ListHeaderComponent={
+          error ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null
+        }
+        renderItem={({ item }) => {
+          const metadata = item.metadata || {};
+          const lossLocation =
+            item.loss_location ||
+            metadata.lossDetails?.lossLocation ||
+            metadata.policyDetails?.propertyAddress ||
+            'Location not set';
+
+          const subtitleParts = [lossLocation];
+          if (item.status) {
+            subtitleParts.push(`Status: ${item.status}`);
+          }
+
+          if (metadata.lossDetails?.dateOfLoss || item.loss_date) {
+            subtitleParts.push(
+              `Loss: ${metadata.lossDetails?.dateOfLoss || item.loss_date}`
+            );
+          }
+
+          return (
+            <Pressable style={styles.itemContainer} onPress={() => handleSelectClaim(item.id)}>
+              <Text style={styles.itemTitle}>
+                {item.claim_number || metadata.policyDetails?.claimNumber || 'Unnamed Claim'}
+              </Text>
+              <Text style={styles.itemSubtitle}>{subtitleParts.join(' • ')}</Text>
+              {metadata.policyHolder?.insuredName && (
+                <Text style={styles.itemMeta}>Insured: {metadata.policyHolder.insuredName}</Text>
+              )}
+              {item.workflow_metadata?.workflowName && (
+                <Text style={styles.itemMeta}>
+                  Workflow: {item.workflow_metadata.workflowName}
+                </Text>
+              )}
+            </Pressable>
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No claims found</Text>
@@ -120,6 +151,11 @@ const styles = StyleSheet.create({
   itemSubtitle: {
     fontSize: 14,
     color: colors.textSoft,
+    marginTop: 4,
+  },
+  itemMeta: {
+    fontSize: 13,
+    color: colors.textLight,
     marginTop: 4,
   },
   emptyText: {
@@ -176,5 +212,17 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 16,
     fontWeight: '700',
-  }
+  },
+  errorBanner: {
+    backgroundColor: colors.errorBg,
+    padding: 12,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 8,
+  },
+  errorText: {
+    color: colors.error,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
 });
