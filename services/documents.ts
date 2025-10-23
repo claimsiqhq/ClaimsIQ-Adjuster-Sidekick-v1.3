@@ -89,7 +89,7 @@ export async function triggerFNOLExtraction(documentId: string, claimId?: string
   });
 
   if (error) throw error;
-  if (!data?.ok) throw new Error(data?.error || 'FNOL extraction failed');
+  if (!data?.success) throw new Error(data?.error || 'FNOL extraction failed');
 }
 
 export async function getDocument(id: string): Promise<Document | null> {
