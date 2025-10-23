@@ -6,6 +6,40 @@ export interface Claim {
   claim_number: string | null;
   policy_number?: string | null;
   status?: string | null;
+  loss_date?: string | null;
+  loss_location?: string | null;
+  insured_name?: string | null;
+  carrier_name?: string | null;
+  metadata?: any;
+  workflow_metadata?: any;
+}
+
+function normalizeClaim(raw: any): Claim {
+  if (!raw) {
+    return raw;
+  }
+
+  const claim: Claim = { ...raw };
+
+  if (typeof claim.metadata === 'string') {
+    try {
+      claim.metadata = JSON.parse(claim.metadata);
+    } catch (error) {
+      console.warn('Failed to parse claim.metadata JSON', error);
+      claim.metadata = null;
+    }
+  }
+
+  if (typeof (claim as any).workflow_metadata === 'string') {
+    try {
+      claim.workflow_metadata = JSON.parse((claim as any).workflow_metadata);
+    } catch (error) {
+      console.warn('Failed to parse claim.workflow_metadata JSON', error);
+      claim.workflow_metadata = null;
+    }
+  }
+
+  return claim;
 }
 
 /**
@@ -55,12 +89,17 @@ export async function listClaimsLike(query: string, limit = 20): Promise<Claim[]
  * @throws {Error} Throws an error for failures other than RLS policy violations.
  */
 export async function getClaims(userId: string): Promise<Claim[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('claims')
     .select('*')
-    .eq('user_id', userId) // Actually filter by user_id now
     .order('created_at', { ascending: false })
     .limit(50);
+
+  if (userId) {
+    query = query.eq('user_id', userId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('getClaims error:', error);
@@ -72,7 +111,7 @@ export async function getClaims(userId: string): Promise<Claim[]> {
     throw error;
   }
 
-  return (data ?? []) as Claim[];
+  return (data ?? []).map(normalizeClaim);
 }
 
 /**
@@ -88,5 +127,5 @@ export async function getClaimById(id: string): Promise<Claim | null> {
     .eq('id', id)
     .single();
   if (error) return null;
-  return data as Claim;
+  return normalizeClaim(data);
 }

@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, FlatList, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { getClaimById } from '@/services/claims';
+import { getClaimById, Claim as ClaimRecord } from '@/services/claims';
 import { getMediaForClaim } from '@/services/media';
 import { supabase } from '@/utils/supabase'; // Import the supabase client
 import { colors } from '@/theme/colors';
@@ -10,17 +10,15 @@ import { handleAppError } from '@/utils/errors';
 import { getHistoricalWeather, Weather } from '@/services/weather';
 import { geocodeAddress } from '@/services/location';
 
+import WorkflowChecklist from '@/components/WorkflowChecklist';
+
 // Define types for better code clarity
-type Claim = { 
-  id: string; 
-  claim_number: string; 
-  policy_number: string; 
+type Claim = ClaimRecord & {
   loss_date?: string;
   loss_location?: string;
   insured_name?: string;
   carrier_name?: string;
   cause_of_loss?: string;
-  metadata?: any;
 };
 type Media = { id: string; public_url: string; status: 'pending' | 'annotated' | 'failed' };
 
@@ -93,7 +91,7 @@ export default function ClaimDetailScreen() {
       supabase.removeChannel(mediaSubscription);
       setActiveClaimId(null); // Clear active claim when leaving the screen
     };
-  }, [id]);
+  }, [id, setActiveClaimId]);
 
   if (loading) {
     return <ActivityIndicator style={styles.centered} size="large" />;
@@ -107,72 +105,84 @@ export default function ClaimDetailScreen() {
     );
   }
 
+  const metadata = claim.metadata || {};
+  const lossDetails = metadata.lossDetails || {};
+  const policyDetails = metadata.policyDetails || {};
+  const policyHolder = metadata.policyHolder || {};
+  const adjustor = metadata.adjustor || {};
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: `Claim ${claim.claim_number}` }} />
       <ScrollView>
         <View style={styles.header}>
           <Text style={styles.title}>{claim.claim_number}</Text>
-          <Text style={styles.subtitle}>Policy: {claim.policy_number}</Text>
-          
+          <Text style={styles.subtitle}>
+            Policy: {claim.policy_number || policyDetails.policyNumber || 'N/A'}
+          </Text>
+
+          {policyDetails.claimNumber && policyDetails.claimNumber !== claim.claim_number && (
+            <Text style={styles.subValue}>FNOL Claim #: {policyDetails.claimNumber}</Text>
+          )}
+
           {/* Display key extracted FNOL data if available */}
-          {claim.metadata && (
+          {(Object.keys(metadata).length > 0 || claim.insured_name) && (
             <>
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Insured:</Text>
                 <Text style={styles.value}>
-                  {claim.metadata.policyHolder?.insuredName || claim.insured_name || 'N/A'}
+                  {policyHolder.insuredName || claim.insured_name || 'N/A'}
                 </Text>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Carrier:</Text>
                 <Text style={styles.value}>
-                  {claim.metadata.carrierName || claim.carrier_name || 'N/A'}
+                  {metadata.carrierName || claim.carrier_name || 'N/A'}
                 </Text>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Loss Type:</Text>
                 <Text style={styles.value}>
-                  {claim.metadata.lossDetails?.causeOfLoss || claim.cause_of_loss || 'Property Damage'}
+                  {lossDetails.causeOfLoss || claim.cause_of_loss || 'Property Damage'}
                 </Text>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Loss Date:</Text>
                 <Text style={styles.value}>
-                  {claim.metadata.lossDetails?.dateOfLoss || claim.loss_date || 'N/A'}
+                  {lossDetails.dateOfLoss || claim.loss_date || 'N/A'}
                 </Text>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Location:</Text>
                 <Text style={styles.value}>
-                  {claim.metadata.lossDetails?.lossLocation || claim.loss_location || 'N/A'}
+                  {lossDetails.lossLocation || claim.loss_location || 'N/A'}
                 </Text>
               </View>
-              
-              {claim.metadata.lossDetails?.lossDescription && (
+
+              {lossDetails.lossDescription && (
                 <View style={styles.descriptionBox}>
                   <Text style={styles.label}>Description:</Text>
                   <Text style={styles.description}>
-                    {claim.metadata.lossDetails.lossDescription}
+                    {lossDetails.lossDescription}
                   </Text>
                 </View>
               )}
-              
-              {claim.metadata.adjustor && (
+
+              {(adjustor.adjustorAssigned || adjustor.adjustorEmail || adjustor.adjustorPhoneNumber) && (
                 <View style={styles.adjustorBox}>
                   <Text style={styles.sectionLabel}>Adjuster Information</Text>
                   <Text style={styles.value}>
-                    {claim.metadata.adjustor.adjustorAssigned || 'Not assigned'}
+                    {adjustor.adjustorAssigned || 'Not assigned'}
                   </Text>
-                  {claim.metadata.adjustor.adjustorEmail && (
-                    <Text style={styles.subValue}>{claim.metadata.adjustor.adjustorEmail}</Text>
+                  {adjustor.adjustorEmail && (
+                    <Text style={styles.subValue}>{adjustor.adjustorEmail}</Text>
                   )}
-                  {claim.metadata.adjustor.adjustorPhoneNumber && (
-                    <Text style={styles.subValue}>{claim.metadata.adjustor.adjustorPhoneNumber}</Text>
+                  {adjustor.adjustorPhoneNumber && (
+                    <Text style={styles.subValue}>{adjustor.adjustorPhoneNumber}</Text>
                   )}
                 </View>
               )}
@@ -211,6 +221,16 @@ export default function ClaimDetailScreen() {
             ))}
           </View>
         )}
+
+        <View style={styles.workflowSection}>
+          <Text style={styles.workflowHeaderTitle}>Inspection Workflow</Text>
+          <WorkflowChecklist
+            claimId={claim.id}
+            onWorkflowComplete={() => {
+              Alert.alert('Workflow Complete', 'All steps for this claim are complete.');
+            }}
+          />
+        </View>
       </ScrollView>
     </View>
   );
@@ -338,5 +358,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     fontWeight: '700',
+  },
+  workflowSection: {
+    marginTop: 24,
+    paddingHorizontal: 16,
+  },
+  workflowHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
 });
