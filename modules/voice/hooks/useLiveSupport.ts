@@ -1,8 +1,8 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { TranscriptEntry, SessionStatus } from '../types';
-import { TranscriptSpeaker } from '../types';
-import { connectToLiveSession, decode, playAudio, startRecording, stopRecording } from '../services/geminiService';
+import type { TranscriptEntry, SessionStatus } from '@/modules/voice/types';
+import { TranscriptSpeaker } from '@/modules/voice/types';
+import { connectToLiveSession, decode, playAudio, startRecording, stopPlayer, stopRecording } from '@/modules/voice/services/geminiService';
 import type { LiveSession, LiveServerMessage } from '@google/genai';
 
 export const useLiveSupport = () => {

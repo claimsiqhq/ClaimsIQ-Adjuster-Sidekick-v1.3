@@ -1,11 +1,11 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useLiveSupport } from './voice/hooks/useLiveSupport';
-import { WelcomeScreen } from './voice/components/WelcomeScreen';
-import { StatusIndicator } from './voice/components/StatusIndicator';
-import { SupportIcon } from './voice/components/SupportIcon';
-import { TranscriptionView } from './voice/components/TranscriptionView';
+import { useLiveSupport } from '@/modules/voice/hooks/useLiveSupport';
+import { WelcomeScreen } from '@/modules/voice/components/WelcomeScreen';
+import { StatusIndicator } from '@/modules/voice/components/StatusIndicator';
+import { SupportIcon } from '@/modules/voice/components/SupportIcon';
+import { TranscriptionView } from '@/modules/voice/components/TranscriptionView';
 import { colors } from '@/theme/colors';
 
 export default function VoiceAgentScreen() {
