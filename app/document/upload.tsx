@@ -45,11 +45,26 @@ export default function DocumentUploadScreen() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
+
+        console.log('[DocumentPicker] Selected asset:', {
+          name: asset.name,
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          size: asset.size,
+        });
+
+        // Ensure we have a valid file source
+        const fileSource = (asset as any).file ?? asset.uri;
+
+        if (!fileSource) {
+          throw new Error('Invalid file selected - no file or URI available');
+        }
+
         setSelectedFile({
           name: asset.name,
           uri: asset.uri,
           type: asset.mimeType || 'application/pdf',
-          file: (asset as any).file ?? asset.uri,
+          file: fileSource,
           size: asset.size,
         });
       }
@@ -68,6 +83,13 @@ export default function DocumentUploadScreen() {
     try {
       setUploading(true);
 
+      console.log('[Upload] Starting upload process:', {
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        fileSize: selectedFile.size,
+        documentType: selectedType,
+      });
+
       // Upload document with proper MIME type
       const document = await uploadDocument({
         file: selectedFile.file,
@@ -78,6 +100,7 @@ export default function DocumentUploadScreen() {
         fileSize: selectedFile.size,
       });
 
+      console.log('[Upload] Document uploaded successfully:', document.id);
       Alert.alert('Success', 'Document uploaded successfully!');
 
       // If it's an FNOL, automatically extract data and populate claim
@@ -145,7 +168,28 @@ export default function DocumentUploadScreen() {
     } catch (error: any) {
       setUploading(false);
       setProcessing(false);
-      Alert.alert('Upload Error', error.message);
+
+      console.error('[Upload] Upload failed:', error);
+
+      // Provide helpful error messages based on error type
+      let errorTitle = 'Upload Error';
+      let errorMessage = error.message;
+
+      if (error.message?.includes('Not authenticated')) {
+        errorTitle = 'Authentication Required';
+        errorMessage = 'Please log in again to upload documents.';
+      } else if (error.message?.includes('Bucket not found')) {
+        errorTitle = 'Configuration Error';
+        errorMessage = 'Storage is not configured. Please contact support.';
+      } else if (error.message?.includes('Failed to read file')) {
+        errorTitle = 'File Read Error';
+        errorMessage = 'Could not read the selected file. Please try selecting it again.';
+      } else if (error.message?.includes('row-level security')) {
+        errorTitle = 'Permission Denied';
+        errorMessage = 'You do not have permission to upload files. Please contact support.';
+      }
+
+      Alert.alert(errorTitle, errorMessage);
     }
   }
 
