@@ -210,27 +210,6 @@ export default function SettingsScreen() {
           </Pressable>
         </Section>
 
-        {/* Help & Resources */}
-        <Section title="Help & Resources">
-          <Pressable style={styles.menuItem} onPress={() => router.push('/help/quickstart')}>
-            <Text style={styles.menuIcon}>🚀</Text>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Quick Start Guide</Text>
-              <Text style={styles.menuSubtitle}>Learn how to use ClaimsIQ Sidekick</Text>
-            </View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-          
-          <Pressable style={styles.menuItem} onPress={() => router.push('/help/features')}>
-            <Text style={styles.menuIcon}>✨</Text>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Features Overview</Text>
-              <Text style={styles.menuSubtitle}>Explore all capabilities</Text>
-            </View>
-            <Text style={styles.menuArrow}>›</Text>
-          </Pressable>
-        </Section>
-
         {/* Support */}
         <Section title="Support">
           <Pressable style={styles.menuItem} onPress={() => Alert.alert('Version', 'ClaimsIQ Sidekick v1.0.0\nBuild: Production')}>

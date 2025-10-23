@@ -67,33 +67,6 @@ export default function CaptureScreen() {
     });
   }, [items, typeFilter, statusFilter]);
 
-  // Clear invalid selections when filters change
-  useEffect(() => {
-    // Build filtered list based on current filters
-    const currentFiltered = items.filter(i => {
-      const tOk = typeFilter === 'all' ? true : i.type === typeFilter;
-      const sOk = statusFilter === 'all' ? true : i.status === statusFilter;
-      return tOk && sOk;
-    });
-    
-    // Keep only selected items that are still visible after filtering
-    const filteredIds = new Set(currentFiltered.map(item => item.id));
-    setSelected(prev => {
-      const newSelected = new Set<string>();
-      prev.forEach(id => {
-        if (filteredIds.has(id)) {
-          newSelected.add(id);
-        }
-      });
-      return newSelected;
-    });
-    
-    // Exit selection mode if no items remain selected
-    if (selected.size > 0 && currentFiltered.filter(item => selected.has(item.id)).length === 0) {
-      setSelecting(false);
-    }
-  }, [typeFilter, statusFilter, items]); // React to filter or items changes
-
   const onOpenCamera = async () => {
     const { granted } = permission ?? {};
     if (!granted) {
@@ -203,7 +176,7 @@ export default function CaptureScreen() {
             </View>
           ) : (
             <View style={styles.toolbar}>
-              <Pressable style={styles.toolBtn} onPress={() => { if (filtered.length > 0) setSelecting(true); }}><Text style={styles.toolBtnTxt}>Select</Text></Pressable>
+              <Pressable style={styles.toolBtn} onPress={() => { if (items.length > 0) setSelecting(true); }}><Text style={styles.toolBtnTxt}>Select</Text></Pressable>
             </View>
           )}
 
@@ -423,7 +396,7 @@ const styles = StyleSheet.create({
   segText: { color: colors.textLight, fontWeight: '600' },
   segTextActive: { color: colors.primary },
   grid: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 10 },
-  tile: { flex: 1, borderRadius: 18, padding: 18, height: 120, justifyContent: 'flex-end' },
+  tile: { borderRadius: 18, padding: 18, height: 120, justifyContent: 'flex-end' },
   tileH: { color: colors.white, fontWeight: '700', fontSize: 18 },
   tileP: { color: colors.white, opacity: 0.9, marginTop: 2 },
   a: { backgroundColor: colors.primary }, b: { backgroundColor: colors.secondary }, c: { backgroundColor: colors.gold },
