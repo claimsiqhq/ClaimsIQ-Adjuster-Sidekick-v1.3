@@ -75,13 +75,17 @@ export async function uploadDocument(
   fileUri: string,
   fileName: string,
   documentType: DocumentType,
-  claimId?: string
+  claimId?: string,
+  mimeType?: string
 ): Promise<Document> {
   try {
     // Generate unique storage path
     const timestamp = Date.now();
     const ext = fileName.split('.').pop() || 'pdf';
     const storagePath = `documents/${timestamp}_${fileName}`;
+
+    // Determine MIME type
+    const contentType = mimeType || (ext.toLowerCase() === 'pdf' ? 'application/pdf' : 'image/jpeg');
 
     // Read file as base64 using Expo FileSystem
     const base64 = await FileSystem.readAsStringAsync(fileUri, {
@@ -95,10 +99,12 @@ export async function uploadDocument(
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     const fileSize = (fileInfo as any).size || 0;
 
+    console.log('[Upload] File details:', { fileName, ext, contentType, fileSize });
+
     const { error: uploadError } = await supabase.storage
       .from('documents')
       .upload(storagePath, uint8Array, {
-        contentType: 'application/pdf',
+        contentType: contentType,
         upsert: false,
       });
 
@@ -112,7 +118,7 @@ export async function uploadDocument(
         document_type: documentType,
         file_name: fileName,
         storage_path: storagePath,
-        mime_type: 'application/pdf',
+        mime_type: contentType,
         file_size_bytes: fileSize,
         extraction_status: 'pending',
       })

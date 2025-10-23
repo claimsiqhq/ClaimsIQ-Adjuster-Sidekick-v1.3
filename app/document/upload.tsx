@@ -55,12 +55,13 @@ export default function DocumentUploadScreen() {
     try {
       setUploading(true);
 
-      // Upload document
+      // Upload document with proper MIME type
       const document = await uploadDocument(
         selectedFile.uri,
         selectedFile.name,
         selectedType,
-        claimId
+        claimId,
+        selectedFile.type
       );
 
       Alert.alert('Success', 'Document uploaded successfully!');
