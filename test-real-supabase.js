@@ -32,7 +32,14 @@ async function testRealSupabase() {
     // 1. Create a NEW claim (with unique claim number)
     const timestamp = Date.now();
     const claimNumber = `TEST-${timestamp}`;
-    const claimId = `c${timestamp.toString().slice(-11)}-0000-0000-0000-000000000000`;
+    // Generate a proper UUID v4 format
+    const randomHex = () => Math.floor(Math.random() * 16).toString(16);
+    const claimId = 
+      'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
     
     console.log('\n1. Creating claim:', claimNumber);
     const claimResponse = await fetch(`${SUPABASE_URL}/rest/v1/claims`, {
