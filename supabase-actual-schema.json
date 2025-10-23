@@ -1,0 +1,199 @@
+{
+  "claims": {
+    "id": {
+      "type": "string",
+      "sample": "750e8400-e29b-41d4-a716-761244113098"
+    },
+    "created_at": {
+      "type": "string",
+      "sample": "2025-10-23T18:28:33.506312+00:00"
+    },
+    "updated_at": {
+      "type": "string",
+      "sample": "2025-10-23T18:28:33.506312+00:00"
+    },
+    "claim_number": {
+      "type": "string",
+      "sample": "CLM-TX-2024-0708F"
+    },
+    "org_id": {
+      "type": "unknown",
+      "sample": null
+    },
+    "user_id": {
+      "type": "string",
+      "sample": "bd7b3229-c5a4-4cdb-ae91-a41bb572b54d"
+    },
+    "insured_name": {
+      "type": "string",
+      "sample": "Susan Anderson"
+    },
+    "insured_phone": {
+      "type": "unknown",
+      "sample": null
+    },
+    "insured_email": {
+      "type": "unknown",
+      "sample": null
+    },
+    "loss_date": {
+      "type": "string",
+      "sample": "2024-07-08T00:00:00+00:00"
+    },
+    "reported_date": {
+      "type": "unknown",
+      "sample": null
+    },
+    "loss_type": {
+      "type": "string",
+      "sample": "Hurricane"
+    },
+    "status": {
+      "type": "string",
+      "sample": "open"
+    },
+    "property_address": {
+      "type": "string",
+      "sample": "666 Galveston Pier, Galveston, TX 77550"
+    },
+    "metadata": {
+      "type": "unknown",
+      "sample": null
+    },
+    "policy_number": {
+      "type": "unknown",
+      "sample": null
+    },
+    "carrier_name": {
+      "type": "unknown",
+      "sample": null
+    },
+    "adjuster_name": {
+      "type": "unknown",
+      "sample": null
+    },
+    "adjuster_email": {
+      "type": "unknown",
+      "sample": null
+    },
+    "adjuster_phone": {
+      "type": "unknown",
+      "sample": null
+    },
+    "loss_location": {
+      "type": "unknown",
+      "sample": null
+    },
+    "loss_description": {
+      "type": "unknown",
+      "sample": null
+    },
+    "cause_of_loss": {
+      "type": "unknown",
+      "sample": null
+    },
+    "estimated_loss": {
+      "type": "unknown",
+      "sample": null
+    },
+    "time_of_loss": {
+      "type": "unknown",
+      "sample": null
+    },
+    "date_prepared": {
+      "type": "unknown",
+      "sample": null
+    },
+    "reporter_name": {
+      "type": "unknown",
+      "sample": null
+    },
+    "reporter_phone": {
+      "type": "unknown",
+      "sample": null
+    }
+  },
+  "media": {
+    "id": {
+      "type": "string",
+      "sample": "e32c6e2d-e600-45dc-901e-bbc866308423"
+    },
+    "created_at": {
+      "type": "string",
+      "sample": "2025-10-22T20:06:42.257668+00:00"
+    },
+    "user_id": {
+      "type": "string",
+      "sample": "bd7b3229-c5a4-4cdb-ae91-a41bb572b54d"
+    },
+    "org_id": {
+      "type": "unknown",
+      "sample": null
+    },
+    "claim_id": {
+      "type": "unknown",
+      "sample": null
+    },
+    "type": {
+      "type": "string",
+      "sample": "photo"
+    },
+    "status": {
+      "type": "string",
+      "sample": "done"
+    },
+    "label": {
+      "type": "string",
+      "sample": "Photo"
+    },
+    "storage_path": {
+      "type": "string",
+      "sample": "media/6761d98b-d8de-48d7-8fae-41f3e8dc53f2.jpg"
+    },
+    "anno_count": {
+      "type": "number",
+      "sample": 0
+    },
+    "qc": {
+      "type": "object",
+      "sample": {
+        "glare": false,
+        "blur_score": 0.1,
+        "underexposed": false,
+        "distance_hint_m": 1.5
+      }
+    },
+    "annotation_json": {
+      "type": "object",
+      "sample": {
+        "model": {
+          "ts": "2023-10-23T23:10:00Z",
+          "name": "damage_assessor_v1"
+        },
+        "photo_qc": {
+          "glare": false,
+          "blur_score": 0.1,
+          "underexposed": false,
+          "distance_hint_m": 1.5
+        },
+        "detections": []
+      }
+    },
+    "last_error": {
+      "type": "unknown",
+      "sample": null
+    },
+    "redaction_json": {
+      "type": "unknown",
+      "sample": null
+    },
+    "updated_at": {
+      "type": "string",
+      "sample": "2025-10-22T20:06:49.514293+00:00"
+    },
+    "derived": {
+      "type": "unknown",
+      "sample": null
+    }
+  }
+}
