@@ -30,38 +30,50 @@ async function resolveFileForUpload(source: UploadSource): Promise<{
   size: number;
   uri?: string;
 }> {
-  if (typeof source === 'string') {
-    const fileRef = new FileSystem.File(source);
-    const info = fileRef.info();
+  try {
+    if (typeof source === 'string') {
+      console.log('[FileResolver] Processing string URI:', source);
+      const fileRef = new FileSystem.File(source);
+      const info = await fileRef.info();
 
-    if (!info.exists) {
-      throw new Error(`File does not exist at URI: ${source}`);
+      if (!info.exists) {
+        throw new Error(`File does not exist at URI: ${source}`);
+      }
+
+      console.log('[FileResolver] File exists, reading bytes...');
+      const bytes = new Uint8Array(await fileRef.arrayBuffer());
+      const size = info.size ?? fileRef.size ?? bytes.length;
+
+      console.log('[FileResolver] Successfully read', bytes.length, 'bytes');
+      return { bytes, size, uri: fileRef.uri };
     }
 
-    const bytes = new Uint8Array(await fileRef.arrayBuffer());
-    const size = info.size ?? fileRef.size ?? bytes.length;
+    if (isExpoFile(source)) {
+      console.log('[FileResolver] Processing FileSystem.File');
+      const info = await source.info();
+      const bytes = new Uint8Array(await source.arrayBuffer());
+      const size = info.size ?? source.size ?? bytes.length;
 
-    return { bytes, size, uri: fileRef.uri };
+      console.log('[FileResolver] Successfully read', bytes.length, 'bytes');
+      return { bytes, size, uri: source.uri };
+    }
+
+    if (isBlobLike(source)) {
+      console.log('[FileResolver] Processing Blob');
+      const blob = source as BlobLike;
+      const arrayBuffer = await blob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      const size = blob.size ?? bytes.length;
+
+      console.log('[FileResolver] Successfully read', bytes.length, 'bytes from Blob');
+      return { bytes, size, uri: undefined };
+    }
+
+    throw new Error('Unsupported file input provided for upload.');
+  } catch (error: any) {
+    console.error('[FileResolver] Error resolving file:', error);
+    throw new Error(`Failed to read file: ${error.message}`);
   }
-
-  if (isExpoFile(source)) {
-    const info = source.info();
-    const bytes = new Uint8Array(await source.arrayBuffer());
-    const size = info.size ?? source.size ?? bytes.length;
-
-    return { bytes, size, uri: source.uri };
-  }
-
-  if (isBlobLike(source)) {
-    const blob = source as BlobLike;
-    const arrayBuffer = await blob.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    const size = blob.size ?? bytes.length;
-
-    return { bytes, size, uri: undefined };
-  }
-
-  throw new Error('Unsupported file input provided for upload.');
 }
 
 export interface Document {
