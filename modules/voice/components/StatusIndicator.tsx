@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { SessionStatus } from '../types';
+import { SessionStatus } from '@/modules/voice/types';
 import { colors } from '@/theme/colors';
 
 interface StatusIndicatorProps {

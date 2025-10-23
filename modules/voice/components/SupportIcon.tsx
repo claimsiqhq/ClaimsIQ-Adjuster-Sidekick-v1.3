@@ -2,7 +2,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SessionStatus } from '../types';
+import { SessionStatus } from '@/modules/voice/types';
 import { colors } from '@/theme/colors';
 
 interface SupportIconProps {

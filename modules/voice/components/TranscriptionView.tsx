@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
-import { TranscriptEntry, TranscriptSpeaker } from '../types';
+import { TranscriptEntry, TranscriptSpeaker } from '@/modules/voice/types';
 import { colors } from '@/theme/colors';
 
 interface TranscriptionViewProps {
