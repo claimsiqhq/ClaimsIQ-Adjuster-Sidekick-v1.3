@@ -89,7 +89,7 @@ export async function uploadDocument(
 
     // Read file as base64 using Expo FileSystem
     const base64 = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
 
     // Convert base64 to Uint8Array using our React Native-compatible function
