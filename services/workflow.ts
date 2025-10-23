@@ -25,7 +25,13 @@ export interface WorkflowStep {
 }
 
 /**
- * Generate workflow for a claim using AI
+ * Invokes a Supabase Edge Function to generate a dynamic, AI-powered workflow for a given claim.
+ * This function is the starting point for creating a tailored set of inspection steps.
+ *
+ * @param {string} claimId - The ID of the claim for which to generate the workflow.
+ * @returns {Promise<{ success: boolean; stepsGenerated: number }>} A promise that resolves to an
+ *          object indicating the success of the operation and the number of steps created.
+ * @throws {Error} Throws an error if the Edge Function fails.
  */
 export async function generateWorkflow(claimId: string): Promise<{ success: boolean; stepsGenerated: number }> {
   const { data, error } = await supabase.functions.invoke('workflow-generate', {
@@ -34,12 +40,15 @@ export async function generateWorkflow(claimId: string): Promise<{ success: bool
 
   if (error) throw error;
   if (!data?.ok) throw new Error(data?.error || 'Workflow generation failed');
-  
+
   return { success: true, stepsGenerated: data.stepsGenerated };
 }
 
 /**
- * Get workflow steps for a claim
+ * Retrieves all the workflow steps associated with a specific claim, ordered by their sequence.
+ *
+ * @param {string} claimId - The ID of the claim.
+ * @returns {Promise<WorkflowStep[]>} A promise that resolves to an array of workflow steps.
  */
 export async function getWorkflowSteps(claimId: string): Promise<WorkflowStep[]> {
   const { data, error } = await supabase
@@ -57,12 +66,16 @@ export async function getWorkflowSteps(claimId: string): Promise<WorkflowStep[]>
 }
 
 /**
- * Mark a workflow step as complete
+ * Marks a specific workflow step as completed.
+ *
+ * @param {string} stepId - The unique ID of the workflow step.
+ * @returns {Promise<void>}
+ * @throws {Error} Throws an error if the update operation fails.
  */
 export async function completeWorkflowStep(stepId: string): Promise<void> {
   const { error } = await supabase
     .from('inspection_steps')
-    .update({ 
+    .update({
       status: 'completed',
       completed_at: new Date().toISOString(),
     })
@@ -72,12 +85,16 @@ export async function completeWorkflowStep(stepId: string): Promise<void> {
 }
 
 /**
- * Mark a workflow step as incomplete
+ * Reverts a workflow step to the 'pending' status.
+ *
+ * @param {string} stepId - The unique ID of the workflow step.
+ * @returns {Promise<void>}
+ * @throws {Error} Throws an error if the update operation fails.
  */
 export async function uncompleteWorkflowStep(stepId: string): Promise<void> {
   const { error } = await supabase
     .from('inspection_steps')
-    .update({ 
+    .update({
       status: 'pending',
       completed_at: null,
     })
@@ -87,7 +104,14 @@ export async function uncompleteWorkflowStep(stepId: string): Promise<void> {
 }
 
 /**
- * Check if a step's evidence requirements are met
+ * Validates whether the evidence requirements for a given workflow step have been met.
+ * This function checks for the required number of photos, LiDAR scans, or documents
+ * associated with the claim.
+ *
+ * @param {WorkflowStep} step - The workflow step to validate.
+ * @param {string} claimId - The ID of the claim.
+ * @returns {Promise<{ valid: boolean; message?: string }>} A promise that resolves to an object
+ *          indicating whether the step is valid and an optional message.
  */
 export async function validateStepEvidence(
   step: WorkflowStep,
@@ -150,7 +174,11 @@ export async function validateStepEvidence(
 }
 
 /**
- * Get workflow completion statistics
+ * Calculates and returns completion statistics for a claim's workflow.
+ *
+ * @param {string} claimId - The ID of the claim.
+ * @returns {Promise<{ total: number; completed: number; pending: number; percentComplete: number }>}
+ *          A promise that resolves to an object with workflow statistics.
  */
 export async function getWorkflowStats(claimId: string): Promise<{
   total: number;
@@ -159,7 +187,7 @@ export async function getWorkflowStats(claimId: string): Promise<{
   percentComplete: number;
 }> {
   const steps = await getWorkflowSteps(claimId);
-  const completed = steps.filter(s => s.status === 'completed').length;
+  const completed = steps.filter((s) => s.status === 'completed').length;
   const total = steps.length;
   const pending = total - completed;
   const percentComplete = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -168,7 +196,10 @@ export async function getWorkflowStats(claimId: string): Promise<{
 }
 
 /**
- * Delete all workflow steps for a claim (to regenerate)
+ * Retrieves the workflow metadata for a claim.
+ *
+ * @param {string} claimId - The ID of the claim.
+ * @returns {Promise<any>} A promise that resolves to the workflow metadata, or null if not found.
  */
 export async function getClaimWorkflowMetadata(claimId: string): Promise<any> {
   const { data, error } = await supabase
@@ -186,13 +217,14 @@ export async function getClaimWorkflowMetadata(claimId: string): Promise<any> {
 }
 
 /**
- * Delete all workflow steps for a claim (to regenerate)
+ * Deletes all workflow steps for a specific claim. This is useful for regenerating a workflow.
+ *
+ * @param {string} claimId - The ID of the claim whose workflow steps should be deleted.
+ * @returns {Promise<void>}
+ * @throws {Error} Throws an error if the deletion fails.
  */
 export async function deleteWorkflow(claimId: string): Promise<void> {
-  const { error } = await supabase
-    .from('inspection_steps')
-    .delete()
-    .eq('claim_id', claimId);
+  const { error } = await supabase.from('inspection_steps').delete().eq('claim_id', claimId);
 
   if (error) throw error;
 }

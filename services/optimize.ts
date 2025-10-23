@@ -43,11 +43,21 @@ export interface RiskAlert {
 }
 
 /**
- * Generate daily optimization plan using AI
+ * Invokes a Supabase Edge Function to generate an AI-powered daily optimization plan.
+ * This function sends the current user's ID and a target date to the 'daily-optimize'
+ * backend function, which then creates a tailored schedule including route optimization,
+ * time blocks, and risk alerts.
+ *
+ * @param {string} [date] - The date for which to generate the optimization plan, in 'YYYY-MM-DD' format.
+ *                          Defaults to the current date.
+ * @returns {Promise<DailyOptimization | null>} A promise that resolves to the optimization plan,
+ *          or `null` if the user is not authenticated or an error occurs.
  */
 export async function generateDailyOptimization(date?: string): Promise<DailyOptimization | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       console.error('No authenticated user');
       return null;
@@ -58,8 +68,8 @@ export async function generateDailyOptimization(date?: string): Promise<DailyOpt
     const { data, error } = await supabase.functions.invoke('daily-optimize', {
       body: {
         userId: user.id,
-        date: targetDate
-      }
+        date: targetDate,
+      },
     });
 
     if (error) {
@@ -75,11 +85,18 @@ export async function generateDailyOptimization(date?: string): Promise<DailyOpt
 }
 
 /**
- * Get existing optimization for a date
+ * Retrieves an existing daily optimization plan for a specific date from the database.
+ *
+ * @param {string} [date] - The date of the optimization plan to retrieve, in 'YYYY-MM-DD' format.
+ *                          Defaults to the current date.
+ * @returns {Promise<DailyOptimization | null>} A promise that resolves to the stored optimization plan,
+ *          or `null` if not found or an error occurs.
  */
 export async function getDailyOptimization(date?: string): Promise<DailyOptimization | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return null;
 
     const targetDate = date || new Date().toISOString().split('T')[0];
@@ -104,18 +121,19 @@ export async function getDailyOptimization(date?: string): Promise<DailyOptimiza
 }
 
 /**
- * Accept or modify an optimization plan
+ * Marks a daily optimization plan as accepted and optionally records any modifications.
+ *
+ * @param {string} optimizationId - The unique ID of the optimization plan to accept.
+ * @param {any} [modifications] - An optional object detailing any user-made changes to the plan.
+ * @returns {Promise<boolean>} A promise that resolves to `true` if the operation was successful, `false` otherwise.
  */
-export async function acceptOptimization(
-  optimizationId: string, 
-  modifications?: any
-): Promise<boolean> {
+export async function acceptOptimization(optimizationId: string, modifications?: any): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('daily_optimizations')
       .update({
         accepted: true,
-        modified: modifications || null
+        modified: modifications || null,
       })
       .eq('id', optimizationId);
 
@@ -132,16 +150,24 @@ export async function acceptOptimization(
 }
 
 /**
- * Get claims with SLA and workflow details
+ * Retrieves a list of claims for the current user, enriched with Service Level Agreement (SLA)
+ * and workflow progress details. This function is essential for providing a high-level
+ * overview of the user's workload and priorities.
+ *
+ * @returns {Promise<any[]>} A promise that resolves to an array of enriched claim objects.
+ *          Each object includes SLA status, hours remaining, and inspection progress.
  */
 export async function getClaimsWithSLA() {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return [];
 
     const { data, error } = await supabase
       .from('claims')
-      .select(`
+      .select(
+        `
         *,
         inspection_steps (
           id,
@@ -153,7 +179,8 @@ export async function getClaimsWithSLA() {
           estimated_minutes,
           sla_minutes
         )
-      `)
+      `
+      )
       .eq('user_id', user.id)
       .in('status', ['open', 'in_progress'])
       .order('priority_score', { ascending: false });
@@ -165,11 +192,9 @@ export async function getClaimsWithSLA() {
 
     // Calculate SLA status for each claim
     const now = new Date();
-    const enrichedClaims = data.map(claim => {
+    const enrichedClaims = data.map((claim) => {
       const deadline = claim.sla_deadline ? new Date(claim.sla_deadline) : null;
-      const hoursRemaining = deadline 
-        ? Math.max(0, (deadline.getTime() - now.getTime()) / (1000 * 60 * 60))
-        : null;
+      const hoursRemaining = deadline ? Math.max(0, (deadline.getTime() - now.getTime()) / (1000 * 60 * 60)) : null;
 
       const totalSteps = claim.inspection_steps?.length || 0;
       const completedSteps = claim.inspection_steps?.filter((s: any) => s.status === 'completed').length || 0;
@@ -181,7 +206,7 @@ export async function getClaimsWithSLA() {
         hours_remaining: hoursRemaining,
         progress_percent: progressPercent,
         current_step: claim.inspection_steps?.find((s: any) => s.status === 'in_progress'),
-        steps_remaining: totalSteps - completedSteps
+        steps_remaining: totalSteps - completedSteps,
       };
     });
 
