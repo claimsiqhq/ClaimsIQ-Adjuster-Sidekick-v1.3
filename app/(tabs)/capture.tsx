@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   segText: { color: colors.textLight, fontWeight: '600' },
   segTextActive: { color: colors.primary },
   grid: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 10 },
-  tile: { borderRadius: 18, padding: 18, height: 120, justifyContent: 'flex-end' },
+  tile: { flex: 1, borderRadius: 18, padding: 18, height: 120, justifyContent: 'flex-end' },
   tileH: { color: colors.white, fontWeight: '700', fontSize: 18 },
   tileP: { color: colors.white, opacity: 0.9, marginTop: 2 },
   a: { backgroundColor: colors.primary }, b: { backgroundColor: colors.secondary }, c: { backgroundColor: colors.gold },
