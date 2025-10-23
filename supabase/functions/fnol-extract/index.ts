@@ -403,62 +403,11 @@ OUTPUT
       extraction_error: null,
       extraction_confidence: 0.95
     }).eq("id", payload.documentId);
-    
-    // 8) Update associated claim with key fields mapped from new structure
-    if (doc.claim_id || payload.claimId) {
-      const claimId = doc.claim_id || payload.claimId;
-      const claimUpdate: any = {
-        metadata: extracted
-      };
-      
-      // Map fields from new structure to claim columns
-      if (extracted.policyDetails?.claimNumber) {
-        claimUpdate.claim_number = extracted.policyDetails.claimNumber;
-      }
-      if (extracted.policyDetails?.policyNumber) {
-        claimUpdate.policy_number = extracted.policyDetails.policyNumber;
-      }
-      if (extracted.carrierName) {
-        claimUpdate.carrier_name = extracted.carrierName;
-      }
-      if (extracted.policyHolder?.insuredName) {
-        claimUpdate.insured_name = extracted.policyHolder.insuredName;
-      }
-      if (extracted.adjustor?.adjustorAssigned) {
-        claimUpdate.adjuster_name = extracted.adjustor.adjustorAssigned;
-      }
-      if (extracted.adjustor?.adjustorEmail) {
-        claimUpdate.adjuster_email = extracted.adjustor.adjustorEmail;
-      }
-      if (extracted.adjustor?.adjustorPhoneNumber) {
-        claimUpdate.adjuster_phone = extracted.adjustor.adjustorPhoneNumber;
-      }
-      if (extracted.lossDetails?.lossLocation) {
-        claimUpdate.loss_location = extracted.lossDetails.lossLocation;
-      }
-      if (extracted.lossDetails?.lossDescription) {
-        claimUpdate.loss_description = extracted.lossDetails.lossDescription;
-      }
-      if (extracted.lossDetails?.causeOfLoss) {
-        claimUpdate.cause_of_loss = extracted.lossDetails.causeOfLoss;
-      }
-      if (extracted.lossDetails?.dateOfLoss) {
-        // Convert date string to ISO format if needed
-        claimUpdate.loss_date = extracted.lossDetails.dateOfLoss;
-      }
-      if (extracted.lossDetails?.timeOfLoss) {
-        claimUpdate.time_of_loss = extracted.lossDetails.timeOfLoss;
-      }
-      if (extracted.lossDetails?.estimatedLoss) {
-        // Extract numeric value from currency string
-        const numericValue = extracted.lossDetails.estimatedLoss.replace(/[^0-9.-]/g, '');
-        claimUpdate.estimated_loss = parseFloat(numericValue) || null;
-      }
-      
-      await sb.from("claims").update(claimUpdate).eq("id", claimId);
-    }
-    
-    // 9) Create workflow based on extracted data
+
+    // Note: Claim field mapping is handled by the client (services/documents.ts)
+    // This keeps the edge function focused on extraction only
+
+    // 8) Create initial workflow based on extracted loss type
     const workflowItems = [];
     
     if (extracted.lossDetails?.causeOfLoss) {
@@ -503,24 +452,33 @@ OUTPUT
       }
     }
     
+    // Only create initial workflow steps if we have a claim_id
+    // Note: Full workflow generation can be done via the workflow-generate edge function
     if (workflowItems.length > 0 && (doc.claim_id || payload.claimId)) {
-      await sb.from("inspection_steps").insert(
-        workflowItems.map((item, idx) => ({
-          claim_id: doc.claim_id || payload.claimId,
-          step_order: idx + 1,
-          title: item.title,
-          description: `Generated from FNOL: ${item.title}`,
-          completed: false,
-          required: true
-        }))
-      );
+      try {
+        await sb.from("inspection_steps").insert(
+          workflowItems.map((item, idx) => ({
+            claim_id: doc.claim_id || payload.claimId,
+            step_order: idx + 1,
+            title: item.title,
+            kind: 'photo',  // Default to 'photo' type for damage documentation
+            instructions: `Generated from FNOL: ${item.title}`,
+            status: 'pending',
+            evidence_rules: { min_count: 1 },
+            orig_id: `fnol_step_${idx + 1}`
+          }))
+        );
+      } catch (workflowError) {
+        // Log but don't fail the entire extraction if workflow creation fails
+        console.error("Failed to create initial workflow steps:", workflowError);
+      }
     }
     
     return new Response(JSON.stringify({
       success: true,
       documentId: payload.documentId,
       claimId: doc.claim_id || payload.claimId,
-      extracted,
+      extraction: extracted,  // Changed from 'extracted' to 'extraction' to match client expectation
       workflowGenerated: workflowItems.length > 0
     }), {
       headers: { ...CORS, "Content-Type": "application/json" }
@@ -531,17 +489,27 @@ OUTPUT
 
     // Mark document as failed if we have documentId
     if (payload?.documentId && sb) {
-      await sb.from("documents").update({
-        extraction_status: "failed",
-        extraction_error: error.message
-      }).eq("id", payload.documentId);
+      try {
+        await sb.from("documents").update({
+          extraction_status: "failed",
+          extraction_error: error.message
+        }).eq("id", payload.documentId);
+      } catch (updateError) {
+        console.error("Failed to update document error status:", updateError);
+      }
     }
-    
+
+    // Determine appropriate HTTP status code
+    const isClientError =
+      error.message?.includes("documentId required") ||
+      error.message?.includes("Document not found") ||
+      error.message?.includes("Failed to fetch PDF");
+
     return new Response(JSON.stringify({
       success: false,
       error: error.message
     }), {
-      status: 400,
+      status: isClientError ? 400 : 500,
       headers: { ...CORS, "Content-Type": "application/json" }
     });
   }
