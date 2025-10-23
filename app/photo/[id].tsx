@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView, SafeAreaView, Pressable } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { getMediaById } from '@/services/media';
+import { getMediaById, MediaStatus } from '@/services/media';
 import { colors } from '@/theme/colors';
 
 type Annotation = {
@@ -17,7 +17,7 @@ type MediaItem = {
     id: string;
     public_url: string;
     annotations: Annotation | null;
-    status: 'pending' | 'annotated' | 'failed';
+    status: MediaStatus;
 };
 
 const AnnotationDisplay = ({ annotation }: { annotation: Annotation }) => (
@@ -105,16 +105,20 @@ export default function PhotoDetailScreen() {
             <ScrollView style={styles.container}>
                 <Image source={{ uri: media.public_url }} style={styles.image} />
             
-            {media.status === 'annotated' && media.annotations ? (
+            {media.status === 'done' && media.annotations ? (
                 <AnnotationDisplay annotation={media.annotations} />
-            ) : media.status === 'pending' ? (
+            ) : media.status === 'pending' || media.status === 'annotating' ? (
                  <View style={styles.pendingContainer}>
                     <ActivityIndicator />
                     <Text style={styles.pendingText}>AI analysis in progress...</Text>
                 </View>
-            ) : (
+            ) : media.status === 'error' ? (
                 <View style={styles.pendingContainer}>
                     <Text style={styles.pendingText}>AI analysis failed or not available.</Text>
+                </View>
+            ) : (
+                <View style={styles.pendingContainer}>
+                    <Text style={styles.pendingText}>AI analysis unavailable for this photo.</Text>
                 </View>
             )}
             </ScrollView>
