@@ -5,39 +5,63 @@ import * as FileSystem from 'expo-file-system';
 export type DocumentType = 'fnol' | 'estimate' | 'photo' | 'report' | 'invoice' | 'correspondence' | 'other';
 export type ExtractionStatus = 'pending' | 'processing' | 'completed' | 'error';
 
-// Helper function to convert base64 to Uint8Array that works in React Native
-function base64ToUint8Array(base64: string): Uint8Array {
-  // This implementation works in React Native without atob
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  const lookup = new Uint8Array(256);
-  for (let i = 0; i < chars.length; i++) {
-    lookup[chars.charCodeAt(i)] = i;
-  }
-  
-  // Remove padding and calculate buffer size
-  let bufferLength = base64.length * 0.75;
-  if (base64[base64.length - 1] === '=') {
-    bufferLength--;
-    if (base64[base64.length - 2] === '=') {
-      bufferLength--;
+type BlobLike = globalThis.Blob;
+type UploadSource = string | BlobLike | FileSystem.File;
+
+export interface UploadDocumentParams {
+  file: UploadSource;
+  fileName: string;
+  documentType: DocumentType;
+  claimId?: string;
+  mimeType?: string;
+  fileSize?: number;
+}
+
+function isExpoFile(source: UploadSource): source is FileSystem.File {
+  return typeof source !== 'string' && source instanceof FileSystem.File;
+}
+
+function isBlobLike(source: UploadSource): source is BlobLike {
+  return typeof source !== 'string' && typeof (source as BlobLike).arrayBuffer === 'function';
+}
+
+async function resolveFileForUpload(source: UploadSource): Promise<{
+  bytes: Uint8Array;
+  size: number;
+  uri?: string;
+}> {
+  if (typeof source === 'string') {
+    const fileRef = new FileSystem.File(source);
+    const info = fileRef.info();
+
+    if (!info.exists) {
+      throw new Error(`File does not exist at URI: ${source}`);
     }
+
+    const bytes = new Uint8Array(await fileRef.arrayBuffer());
+    const size = info.size ?? fileRef.size ?? bytes.length;
+
+    return { bytes, size, uri: fileRef.uri };
   }
-  
-  const bytes = new Uint8Array(bufferLength);
-  let p = 0;
-  
-  for (let i = 0; i < base64.length; i += 4) {
-    const encoded1 = lookup[base64.charCodeAt(i)];
-    const encoded2 = lookup[base64.charCodeAt(i + 1)];
-    const encoded3 = lookup[base64.charCodeAt(i + 2)];
-    const encoded4 = lookup[base64.charCodeAt(i + 3)];
-    
-    bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
-    if (encoded3 !== 64) bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
-    if (encoded4 !== 64) bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+
+  if (isExpoFile(source)) {
+    const info = source.info();
+    const bytes = new Uint8Array(await source.arrayBuffer());
+    const size = info.size ?? source.size ?? bytes.length;
+
+    return { bytes, size, uri: source.uri };
   }
-  
-  return bytes;
+
+  if (isBlobLike(source)) {
+    const blob = source as BlobLike;
+    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    const size = blob.size ?? bytes.length;
+
+    return { bytes, size, uri: undefined };
+  }
+
+  throw new Error('Unsupported file input provided for upload.');
 }
 
 export interface Document {
@@ -62,32 +86,27 @@ export interface Document {
 
 /**
  * Uploads a document to Supabase storage and creates a corresponding record in the database.
- * The file is read from the local file system, converted to an ArrayBuffer, and then uploaded.
- *
- * @param {string} fileUri - The local URI of the file to be uploaded.
- * @param {string} fileName - The name of the file.
- * @param {DocumentType} documentType - The type of the document (e.g., 'fnol', 'estimate').
- * @param {string} [claimId] - Optional. The ID of the claim this document is associated with.
- * @returns {Promise<Document>} A promise that resolves to the newly created document record.
- * @throws {Error} Throws an error if the file upload or database insertion fails.
+ * The file input can be an Expo `File`, a Blob/File instance, or a file URI string. It is
+ * normalized into a Uint8Array before being streamed to Supabase Storage.
  */
-export async function uploadDocument(
-  fileUri: string,
-  fileName: string,
-  documentType: DocumentType,
-  claimId?: string,
-  mimeType?: string
-): Promise<Document> {
+export async function uploadDocument({
+  file,
+  fileName,
+  documentType,
+  claimId,
+  mimeType,
+  fileSize,
+}: UploadDocumentParams): Promise<Document> {
   try {
-    console.log('[Upload] Starting upload:', { fileUri, fileName, documentType });
-    
+    console.log('[Upload] Starting upload:', { fileName, documentType });
+
     // Check authentication first
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !session) {
       throw new Error('Not authenticated. Please log in again.');
     }
     console.log('[Upload] User authenticated:', session.user.id);
-    
+
     // Generate unique storage path
     const timestamp = Date.now();
     const ext = fileName.split('.').pop() || 'pdf';
@@ -96,30 +115,19 @@ export async function uploadDocument(
     // Determine MIME type
     const contentType = mimeType || (ext.toLowerCase() === 'pdf' ? 'application/pdf' : 'image/jpeg');
 
-    // Get file info first
-    const fileInfo = await FileSystem.getInfoAsync(fileUri);
-    const fileSize = (fileInfo as any).size || 0;
-    console.log('[Upload] File info:', { exists: fileInfo.exists, size: fileSize });
-
-    // Read file as base64 using Expo FileSystem
-    console.log('[Upload] Reading file as base64...');
-    const base64 = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: 'base64',
-    });
-    console.log('[Upload] Base64 length:', base64.length);
-
-    // Convert base64 to Uint8Array for Supabase storage
-    console.log('[Upload] Converting to Uint8Array...');
-    const uint8Array = base64ToUint8Array(base64);
-    console.log('[Upload] Uint8Array length:', uint8Array.length);
+    // Resolve bytes using the modern FileSystem API or Blob interfaces
+    console.log('[Upload] Resolving file bytes...');
+    const { bytes, size: resolvedSize, uri } = await resolveFileForUpload(file);
+    const uploadSize = fileSize ?? resolvedSize ?? bytes.length;
+    console.log('[Upload] File info:', { uri, size: uploadSize });
 
     console.log('[Upload] Uploading to Supabase storage:', storagePath);
     console.log('[Upload] Content type:', contentType);
-    console.log('[Upload] Data size:', uint8Array.length, 'bytes');
-    
+    console.log('[Upload] Data size:', bytes.length, 'bytes');
+
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('documents')
-      .upload(storagePath, uint8Array, {
+      .upload(storagePath, bytes, {
         contentType: contentType,
         upsert: false,
       });
@@ -154,7 +162,7 @@ export async function uploadDocument(
         file_name: fileName,
         storage_path: storagePath,
         mime_type: contentType,
-        file_size_bytes: fileSize,
+        file_size_bytes: uploadSize,
         extraction_status: 'pending',
       })
       .select('*')

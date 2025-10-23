@@ -3,17 +3,28 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView, SafeAreaView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { colors } from '@/theme/colors';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
 import { uploadDocument, triggerFNOLExtraction, DocumentType } from '@/services/documents';
+
+type BlobLike = globalThis.Blob;
 
 export default function DocumentUploadScreen() {
   const router = useRouter();
   const { claimId } = useLocalSearchParams<{ claimId?: string }>();
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<{ name: string; uri: string; type: string } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<
+    {
+      name: string;
+      uri?: string;
+      type: string;
+      file: string | BlobLike | FileSystem.File;
+      size?: number;
+    } | null
+  >(null);
   const [selectedType, setSelectedType] = useState<DocumentType>('fnol');
 
   const documentTypes: { value: DocumentType; label: string }[] = [
@@ -38,6 +49,8 @@ export default function DocumentUploadScreen() {
           name: asset.name,
           uri: asset.uri,
           type: asset.mimeType || 'application/pdf',
+          file: (asset as any).file ?? asset.uri,
+          size: asset.size,
         });
       }
     } catch (error: any) {
@@ -56,13 +69,14 @@ export default function DocumentUploadScreen() {
       setUploading(true);
 
       // Upload document with proper MIME type
-      const document = await uploadDocument(
-        selectedFile.uri,
-        selectedFile.name,
-        selectedType,
+      const document = await uploadDocument({
+        file: selectedFile.file,
+        fileName: selectedFile.name,
+        documentType: selectedType,
         claimId,
-        selectedFile.type
-      );
+        mimeType: selectedFile.type,
+        fileSize: selectedFile.size,
+      });
 
       Alert.alert('Success', 'Document uploaded successfully!');
 
