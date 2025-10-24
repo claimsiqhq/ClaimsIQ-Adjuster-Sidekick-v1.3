@@ -419,7 +419,7 @@ OUTPUT
       console.log(`Successfully updated claim ${claimId} with complete FNOL data`);
     }
 
-    // 8) Create initial workflow based on extracted loss type
+    // 9) Create initial workflow based on extracted loss type
     const workflowItems = [];
     
     if (extracted.lossDetails?.causeOfLoss) {
