@@ -165,18 +165,33 @@ export async function uploadDocument({
     }
     console.log('[Upload] Storage upload successful:', uploadData);
 
-    // Create document record
+    // Create document record with ALL columns populated
+    const documentRecord: any = {
+      claim_id: claimId || null,
+      user_id: session.user.id,
+      org_id: (session.user as any).org_id || null, // If user has org_id
+      document_type: documentType,
+      file_name: fileName,
+      storage_path: storagePath,
+      mime_type: contentType,
+      file_size_bytes: uploadSize,
+      extraction_status: 'pending',
+      extraction_error: null,
+      extraction_confidence: null,
+      extracted_data: null,
+      tags: [], // Will be populated after extraction
+      metadata: {
+        uploaded_at: new Date().toISOString(),
+        original_filename: fileName,
+        content_type: contentType,
+      }
+    };
+    
+    console.log('[Upload] Creating document record with ALL columns populated');
+    
     const { data, error: insertError } = await supabase
       .from('documents')
-      .insert({
-        claim_id: claimId || null,
-        document_type: documentType,
-        file_name: fileName,
-        storage_path: storagePath,
-        mime_type: contentType,
-        file_size_bytes: uploadSize,
-        extraction_status: 'pending',
-      })
+      .insert(documentRecord)
       .select('*')
       .single();
 
