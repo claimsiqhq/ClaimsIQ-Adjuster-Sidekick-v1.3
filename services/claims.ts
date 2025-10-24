@@ -3,15 +3,32 @@ import { supabase } from '@/utils/supabase';
 export interface Claim {
   id: string;
   created_at: string;
+  updated_at: string;
   claim_number: string | null;
-  policy_number?: string | null;
-  status?: string | null;
-  loss_date?: string | null;
-  loss_location?: string | null;
-  insured_name?: string | null;
-  carrier_name?: string | null;
-  metadata?: any;
-  workflow_metadata?: any;
+  org_id: string | null;
+  user_id: string | null;
+  insured_name: string | null;
+  insured_phone: string | null;
+  insured_email: string | null;
+  loss_date: string | null;
+  reported_date: string | null;
+  loss_type: string | null;
+  status: string | null;
+  property_address: any;
+  metadata: any;
+  policy_number: string | null;
+  carrier_name: string | null;
+  adjuster_name: string | null;
+  adjuster_email: string | null;
+  adjuster_phone: string | null;
+  loss_location: string | null;
+  loss_description: string | null;
+  cause_of_loss: string | null;
+  estimated_loss: number | null;
+  time_of_loss: string | null;
+  date_prepared: string | null;
+  reporter_name: string | null;
+  reporter_phone: string | null;
 }
 
 function normalizeClaim(raw: any): Claim {
