@@ -50,10 +50,7 @@ async function convertAndProcessFNOLs() {
       console.log('2. Converting PDF to PNG images...');
       const pngPages = await pdfToPng(pdfPath, {
         outputFolder: tempDir,
-        outputFileMask: `${pdf.name.replace('.pdf', '')}_page`,
-        pagesToProcess: -1, // All pages
-        strictPagesToProcess: false,
-        verbosityLevel: 0
+        outputFileMask: `${pdf.name.replace('.pdf', '')}_page`
       });
       
       console.log(`   ✅ Converted ${pngPages.length} pages`);
