@@ -4,6 +4,8 @@ import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import PDFLib from 'react-native-pdf-lib';
 import { colors } from '@/theme/colors';
 import Header from '@/components/Header';
 import Section from '@/components/Section';
@@ -74,6 +76,41 @@ export default function DocumentUploadScreen() {
     }
   }
 
+  async function convertPDFToImages(pdfUri: string): Promise<string[]> {
+    console.log('[PDF Converter] Starting PDF conversion:', pdfUri);
+    
+    try {
+      // Get number of pages in PDF
+      const pdfInfo = await PDFLib.getPageCount(pdfUri);
+      const numPages = pdfInfo;
+      console.log(`[PDF Converter] PDF has ${numPages} pages`);
+      
+      const imageUris: string[] = [];
+      
+      // Convert each page to image (max 10 pages)
+      const maxPages = Math.min(numPages, 10);
+      for (let i = 0; i < maxPages; i++) {
+        console.log(`[PDF Converter] Converting page ${i + 1}/${maxPages}`);
+        
+        // Render PDF page to image
+        const imageUri = await PDFLib.renderPage({
+          page: i,
+          scale: 2.0, // High quality
+          filePath: pdfUri,
+          outputPath: `${FileSystem.cacheDirectory}fnol_page_${i + 1}.png`,
+        });
+        
+        imageUris.push(imageUri);
+        console.log(`[PDF Converter] Page ${i + 1} converted: ${imageUri}`);
+      }
+      
+      return imageUris;
+    } catch (error: any) {
+      console.error('[PDF Converter] Error:', error);
+      throw new Error(`Failed to convert PDF: ${error.message}`);
+    }
+  }
+
   async function handleUpload() {
     if (!selectedFile) {
       Alert.alert('Error', 'Please select a document first');
@@ -90,15 +127,50 @@ export default function DocumentUploadScreen() {
         documentType: selectedType,
       });
 
-      // Upload document with proper MIME type
-      const document = await uploadDocument({
-        file: selectedFile.file,
-        fileName: selectedFile.name,
-        documentType: selectedType,
-        claimId,
-        mimeType: selectedFile.type,
-        fileSize: selectedFile.size,
-      });
+      // Check if file is a PDF - if so, convert to images first
+      const isPDF = selectedFile.type === 'application/pdf' || 
+                    selectedFile.name.toLowerCase().endsWith('.pdf');
+      
+      let documentsToUpload: any[] = [];
+      
+      if (isPDF && selectedType === 'fnol') {
+        console.log('[Upload] PDF detected, converting to images...');
+        Alert.alert('Converting PDF', 'Converting PDF pages to images for AI processing...');
+        
+        const imageUris = await convertPDFToImages(selectedFile.uri!);
+        console.log(`[Upload] Converted ${imageUris.length} pages`);
+        
+        // Upload each image
+        for (let i = 0; i < imageUris.length; i++) {
+          const imageUri = imageUris[i];
+          const imageName = selectedFile.name.replace('.pdf', `_page_${i + 1}.png`);
+          
+          const document = await uploadDocument({
+            file: imageUri,
+            fileName: imageName,
+            documentType: selectedType,
+            claimId,
+            mimeType: 'image/png',
+          });
+          
+          documentsToUpload.push(document);
+          console.log(`[Upload] Uploaded page ${i + 1}: ${document.id}`);
+        }
+      } else {
+        // Upload single document (image or non-FNOL PDF)
+        const document = await uploadDocument({
+          file: selectedFile.file,
+          fileName: selectedFile.name,
+          documentType: selectedType,
+          claimId,
+          mimeType: selectedFile.type,
+          fileSize: selectedFile.size,
+        });
+        
+        documentsToUpload.push(document);
+      }
+      
+      const document = documentsToUpload[0]; // Use first document for FNOL extraction
 
       console.log('[Upload] Document uploaded successfully:', document.id);
       Alert.alert('Success', 'Document uploaded successfully!');

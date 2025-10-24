@@ -6,12 +6,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { renderPageAsImage, getResolvedPDFJS } from "npm:unpdf@0.12.0";
+import { getDocument, GlobalWorkerOptions } from "npm:pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
 import { encode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
+
+// Disable worker for Deno Edge Runtime compatibility
+GlobalWorkerOptions.workerSrc = '';
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -19,93 +22,47 @@ const CORS = {
 };
 
 /**
- * Convert PDF to images using free unpdf library
+ * Convert PDF to images using pdfjs-dist
  */
 async function convertPDFToImages(pdfData: Uint8Array): Promise<string[]> {
   try {
     console.log("Starting PDF to image conversion");
-    const { getDocument } = await getResolvedPDFJS();
-    const pdf = await getDocument(pdfData).promise;
+    const pdf = await getDocument({ data: pdfData }).promise;
+    console.log(`PDF loaded successfully: ${pdf.numPages} pages`);
 
     // Process up to 10 pages for FNOL documents
     const maxPages = Math.min(pdf.numPages, 10);
-    const renderedPages: Array<unknown> = [];
+    const base64Images: string[] = [];
 
     for (let i = 1; i <= maxPages; i++) {
-      console.log(`Converting page ${i} of ${maxPages}`);
-      const imageResult = await renderPageAsImage(pdfData, i, {
-        scale: 2.0, // High quality for text extraction
-      });
-
-      const resultSummary = {
-        type: imageResult?.constructor?.name ?? typeof imageResult,
-        isString: typeof imageResult === "string",
-        isUint8Array: imageResult instanceof Uint8Array,
-        hasBase64: typeof (imageResult as any)?.base64 === "string",
-        hasDataUrl: typeof (imageResult as any)?.dataUrl === "string"
-      };
-      console.log(`renderPageAsImage result for page ${i}:`, resultSummary);
-
-      renderedPages.push(imageResult);
-    }
-
-    // Normalize render results to base64 data URLs for OpenAI
-    const base64Images = renderedPages.map((pageResult, index) => {
-      try {
-        let dataUrl: string | undefined;
-
-        if (typeof pageResult === "string") {
-          console.log(`Page ${index + 1}: render result is string (dataUrl=${pageResult.startsWith("data:")})`);
-          dataUrl = pageResult.startsWith("data:")
-            ? pageResult
-            : `data:image/png;base64,${pageResult}`;
-        } else if (pageResult instanceof Uint8Array) {
-          console.log(`Page ${index + 1}: render result is Uint8Array with length ${pageResult.length}`);
-          dataUrl = `data:image/png;base64,${encode(pageResult)}`;
-        } else if (pageResult && typeof pageResult === "object") {
-          const base64Value = typeof (pageResult as any).base64 === "string"
-            ? (pageResult as any).base64
-            : typeof (pageResult as any).dataUrl === "string"
-              ? (pageResult as any).dataUrl
-              : undefined;
-
-          if (base64Value) {
-            console.log(`Page ${index + 1}: render result provided base64/dataUrl directly (prefixed=${base64Value.startsWith("data:")})`);
-            dataUrl = base64Value.startsWith("data:")
-              ? base64Value
-              : `data:image/png;base64,${base64Value}`;
-          } else {
-            const bufferCandidate = (pageResult as any).buffer ?? (pageResult as any).data ?? (pageResult as any).arrayBuffer;
-            if (bufferCandidate) {
-              console.log(`Page ${index + 1}: render result provided buffer-like data`);
-              let array: Uint8Array;
-              if (bufferCandidate instanceof Uint8Array) {
-                array = bufferCandidate;
-              } else if (bufferCandidate instanceof ArrayBuffer) {
-                array = new Uint8Array(bufferCandidate);
-              } else if (typeof bufferCandidate === "function") {
-                const resolved = bufferCandidate();
-                array = resolved instanceof Uint8Array
-                  ? resolved
-                  : new Uint8Array(resolved);
-              } else {
-                array = new Uint8Array(bufferCandidate);
-              }
-              dataUrl = `data:image/png;base64,${encode(array)}`;
-            }
-          }
-        }
-
-        if (!dataUrl) {
-          throw new Error(`Unsupported renderPageAsImage result (page ${index + 1})`);
-        }
-
-        return dataUrl;
-      } catch (innerError) {
-        console.error(`Failed to normalize rendered image for page ${index + 1}`, innerError);
-        throw innerError;
+      console.log(`Rendering page ${i} of ${maxPages}`);
+      
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 });
+      
+      // Create an OffscreenCanvas for rendering
+      const canvas = new OffscreenCanvas(viewport.width, viewport.height);
+      const context = canvas.getContext('2d');
+      
+      if (!context) {
+        throw new Error(`Failed to get canvas context for page ${i}`);
       }
-    });
+      
+      // Render the PDF page to the canvas
+      await page.render({
+        canvasContext: context as any,
+        viewport: viewport
+      }).promise;
+      
+      // Convert canvas to blob then to base64
+      const blob = await canvas.convertToBlob({ type: 'image/png' });
+      const arrayBuffer = await blob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const base64 = encode(uint8Array);
+      
+      base64Images.push(`data:image/png;base64,${base64}`);
+      console.log(`Page ${i} converted successfully`);
+    }
 
     console.log(`Successfully converted ${base64Images.length} pages to images`);
     return base64Images;
@@ -116,18 +73,30 @@ async function convertPDFToImages(pdfData: Uint8Array): Promise<string[]> {
 }
 
 Deno.serve(async (req) => {
+  console.log("=== FNOL EXTRACTION STARTED ===");
+  console.log("Request method:", req.method);
+  console.log("Request URL:", req.url);
+  
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   let payload: { documentId?: string; claimId?: string } | null = null;
   let sb: SupabaseClient | null = null;
 
   try {
+    console.log("Checking environment variables...");
+    console.log("OPENAI_API_KEY:", OPENAI_API_KEY ? "SET" : "NOT SET");
+    console.log("SUPABASE_URL:", SUPABASE_URL ? "SET" : "NOT SET");
+    console.log("SUPABASE_SERVICE_KEY:", SUPABASE_SERVICE_KEY ? "SET" : "NOT SET");
+    
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not set");
 
+    console.log("Parsing request body...");
     payload = await req.json();
+    console.log("Payload received:", payload);
+    
     if (!payload || !payload.documentId) throw new Error("documentId required");
 
-    sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
       global: {
         headers: {
           Authorization: req.headers.get("Authorization") ?? ""
@@ -157,29 +126,16 @@ Deno.serve(async (req) => {
     
     if (!DOCUMENT_URL) throw new Error("Failed to get document URL");
     
-    // 3) Check if document is PDF and needs conversion
-    let imageUrls: string[] = [];
+    // 3) Check document type - OpenAI Vision only supports images, not PDFs
+    console.log(`Document type: ${doc.mime_type}, URL: ${DOCUMENT_URL}`);
     
     if (doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith('.pdf')) {
-      console.log("PDF detected, converting to images...");
-      
-      // Fetch the PDF
-      const pdfResponse = await fetch(DOCUMENT_URL);
-      if (!pdfResponse.ok) {
-        throw new Error(`Failed to fetch PDF: ${pdfResponse.status}`);
-      }
-      
-      const pdfData = new Uint8Array(await pdfResponse.arrayBuffer());
-      console.log(`PDF size: ${pdfData.length} bytes`);
-      
-      // Convert PDF to images
-      imageUrls = await convertPDFToImages(pdfData);
-      console.log(`Converted to ${imageUrls.length} images`);
-    } else {
-      // Document is already an image
-      console.log("Document is an image, using directly");
-      imageUrls = [DOCUMENT_URL];
+      throw new Error("PDF conversion not supported in edge function. Please convert PDF to images before uploading.");
     }
+    
+    // For images, use the URL directly
+    const imageUrls = [DOCUMENT_URL];
+    console.log("Using image URL for OpenAI processing");
     
     // 4) Get active FNOL extraction prompt (SINGLE PROMPT)
     const { data: promptData } = await sb
