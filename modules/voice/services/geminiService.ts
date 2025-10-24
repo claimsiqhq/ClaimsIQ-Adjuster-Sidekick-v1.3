@@ -8,7 +8,20 @@ import Constants from 'expo-constants';
 
 const SYSTEM_INSTRUCTION = `You are a live support agent for property claims inspectors. You are an expert in building systems that use Retrieval-Augmented Generation (RAG) to reference technical documents. Be prepared to explain the steps for implementing RAG, including document processing, vector embeddings, and integrating with a large language model. Be concise, clear, and very responsive.`;
 
-const audioRecorderPlayer = new AudioRecorderPlayer();
+// Lazy initialization to avoid module-level crashes
+let audioRecorderPlayer: AudioRecorderPlayer | null = null;
+
+function getAudioRecorderPlayer(): AudioRecorderPlayer {
+  if (!audioRecorderPlayer) {
+    try {
+      audioRecorderPlayer = new AudioRecorderPlayer();
+    } catch (error) {
+      console.error('Failed to initialize AudioRecorderPlayer:', error);
+      throw new Error('Audio recording is not available on this device');
+    }
+  }
+  return audioRecorderPlayer;
+}
 
 export const connectToLiveSession = async (callbacks: LiveCallbacks): Promise<LiveSession> => {
   const apiKey = Constants.expoConfig?.extra?.geminiApiKey;
@@ -40,36 +53,54 @@ export const connectToLiveSession = async (callbacks: LiveCallbacks): Promise<Li
 // --- Audio Helper Functions ---
 
 export const startRecording = async (session: LiveSession) => {
-  Voice.onSpeechResults = (e) => {
-    // This event is not used for sending audio data in this implementation
-  };
-
-  Voice.onSpeechPartialResults = (e) => {
-    // This event is not used for sending audio data in this implementation
-  };
-
-  await Voice.start('en-US');
-
-  audioRecorderPlayer.startRecorder(undefined, undefined, true);
-  audioRecorderPlayer.addRecordBackListener((e) => {
-    const chunk = e.isLastChunk ? e.chunk : e.buffer;
-    const pcmBlob = {
-      data: Buffer.from(chunk).toString('base64'),
-      mimeType: 'audio/pcm;rate=16000',
+  try {
+    Voice.onSpeechResults = (e) => {
+      // This event is not used for sending audio data in this implementation
     };
-    session.sendRealtimeInput({ media: pcmBlob });
-    return;
-  });
+
+    Voice.onSpeechPartialResults = (e) => {
+      // This event is not used for sending audio data in this implementation
+    };
+
+    await Voice.start('en-US');
+
+    const recorder = getAudioRecorderPlayer();
+    recorder.startRecorder(undefined, undefined, true);
+    recorder.addRecordBackListener((e) => {
+      const chunk = e.isLastChunk ? e.chunk : e.buffer;
+      const pcmBlob = {
+        data: Buffer.from(chunk).toString('base64'),
+        mimeType: 'audio/pcm;rate=16000',
+      };
+      session.sendRealtimeInput({ media: pcmBlob });
+      return;
+    });
+  } catch (error) {
+    console.error('Failed to start recording:', error);
+    throw error;
+  }
 };
 
 export const stopRecording = async () => {
-  await Voice.stop();
-  await audioRecorderPlayer.stopRecorder();
-  audioRecorderPlayer.removeRecordBackListener();
+  try {
+    await Voice.stop();
+    if (audioRecorderPlayer) {
+      await audioRecorderPlayer.stopRecorder();
+      audioRecorderPlayer.removeRecordBackListener();
+    }
+  } catch (error) {
+    console.error('Failed to stop recording:', error);
+  }
 };
 
 export const stopPlayer = async () => {
-  await audioRecorderPlayer.stopPlayer();
+  try {
+    if (audioRecorderPlayer) {
+      await audioRecorderPlayer.stopPlayer();
+    }
+  } catch (error) {
+    console.error('Failed to stop player:', error);
+  }
 };
 
 export function decode(base64: string) {
@@ -77,6 +108,12 @@ export function decode(base64: string) {
 }
 
 export async function playAudio(data: Uint8Array) {
-  const path = await audioRecorderPlayer.startPlayer();
-  await audioRecorderPlayer.play(path, data);
+  try {
+    const recorder = getAudioRecorderPlayer();
+    const path = await recorder.startPlayer();
+    await recorder.play(path, data);
+  } catch (error) {
+    console.error('Failed to play audio:', error);
+    throw error;
+  }
 }

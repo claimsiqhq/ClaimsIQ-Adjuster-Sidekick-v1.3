@@ -5,6 +5,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from '@/utils/supabase';
 import { View, ActivityIndicator } from 'react-native';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { Buffer } from 'buffer';
+
+// Polyfill Buffer for React Native
+if (typeof global.Buffer === 'undefined') {
+  global.Buffer = Buffer;
+}
 
 export default function RootLayout() {
   const [authed, setAuthed] = useState<boolean | null>(null);
