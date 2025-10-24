@@ -360,63 +360,86 @@ OUTPUT
       extraction_confidence: 0.95
     }).eq("id", payload.documentId);
 
-    // 8) Update or create claim with ALL 28 columns populated
-    if (doc.claim_id || payload.claimId) {
-      const claimId = doc.claim_id || payload.claimId;
+    // 8) Create or update claim with ALL 28 columns populated
+    let finalClaimId = doc.claim_id || payload.claimId;
+    
+    // Map ALL extracted FNOL data to claim columns
+    const claimData: any = {
+      // Core identifiers
+      claim_number: extracted.policyDetails?.claimNumber || `AUTO-${Date.now()}`,
+      policy_number: extracted.policyDetails?.policyNumber || null,
       
-      // Map ALL extracted FNOL data to claim columns
-      const claimUpdate: any = {
-        // Core identifiers
-        claim_number: extracted.policyDetails?.claimNumber || null,
-        policy_number: extracted.policyDetails?.policyNumber || null,
-        
-        // Insured information (3 columns)
-        insured_name: extracted.policyHolder?.insuredName || null,
-        insured_phone: extracted.reporterInfo?.callerCellPhone || extracted.reporterInfo?.callerHomePhone || null,
-        insured_email: extracted.reporterInfo?.callerEmailAddress || null,
-        
-        // Loss details (9 columns)
-        loss_date: extracted.lossDetails?.dateOfLoss || null,
-        loss_type: extracted.lossDetails?.claimType || null,
-        loss_location: extracted.lossDetails?.lossLocation || null,
-        loss_description: extracted.lossDetails?.lossDescription || null,
-        cause_of_loss: extracted.lossDetails?.causeOfLoss || null,
-        estimated_loss: parseFloat(extracted.lossDetails?.estimatedLoss?.replace(/[^0-9.-]/g, '') || '0') || null,
-        time_of_loss: extracted.lossDetails?.timeOfLoss || null,
-        
-        // Adjuster information (3 columns)
-        adjuster_name: extracted.adjustor?.adjustorAssigned || null,
-        adjuster_email: extracted.adjustor?.adjustorEmail || null,
-        adjuster_phone: extracted.adjustor?.adjustorPhoneNumber || null,
-        
-        // Carrier information
-        carrier_name: extracted.carrierName || null,
-        
-        // Reporter information (2 columns)
-        reporter_name: extracted.reporterInfo?.reportersName || null,
-        reporter_phone: extracted.reporterInfo?.callerCellPhone || extracted.reporterInfo?.callerBusinessPhone || null,
-        
-        // Dates
-        date_prepared: extracted.datePrepared || null,
-        reported_date: new Date().toISOString().split('T')[0], // Today's date
-        
-        // Status
-        status: 'open',
-        
-        // Property address (JSONB)
-        property_address: extracted.lossDetails?.lossLocation ? {
-          full_address: extracted.lossDetails.lossLocation
-        } : null,
-        
-        // Store complete FNOL data in metadata
-        metadata: extracted
-      };
+      // Insured information (3 columns)
+      insured_name: extracted.policyHolder?.insuredName || null,
+      insured_phone: extracted.reporterInfo?.callerCellPhone || extracted.reporterInfo?.callerHomePhone || null,
+      insured_email: extracted.reporterInfo?.callerEmailAddress || null,
       
-      console.log(`Updating claim ${claimId} with ALL extracted data`);
+      // Loss details (7 columns)
+      loss_date: extracted.lossDetails?.dateOfLoss || null,
+      loss_type: extracted.lossDetails?.claimType || null,
+      loss_location: extracted.lossDetails?.lossLocation || null,
+      loss_description: extracted.lossDetails?.lossDescription || null,
+      cause_of_loss: extracted.lossDetails?.causeOfLoss || null,
+      estimated_loss: parseFloat(extracted.lossDetails?.estimatedLoss?.replace(/[^0-9.-]/g, '') || '0') || null,
+      time_of_loss: extracted.lossDetails?.timeOfLoss || null,
       
-      await sb.from("claims").update(claimUpdate).eq("id", claimId);
+      // Adjuster information (3 columns)
+      adjuster_name: extracted.adjustor?.adjustorAssigned || null,
+      adjuster_email: extracted.adjustor?.adjustorEmail || null,
+      adjuster_phone: extracted.adjustor?.adjustorPhoneNumber || null,
       
-      console.log(`Successfully updated claim ${claimId} with complete FNOL data`);
+      // Carrier information
+      carrier_name: extracted.carrierName || null,
+      
+      // Reporter information (2 columns)
+      reporter_name: extracted.reporterInfo?.reportersName || null,
+      reporter_phone: extracted.reporterInfo?.callerCellPhone || extracted.reporterInfo?.callerBusinessPhone || null,
+      
+      // Dates
+      date_prepared: extracted.datePrepared || null,
+      reported_date: new Date().toISOString().split('T')[0], // Today's date
+      
+      // Status - use valid database constraint value
+      status: 'open',
+      
+      // Property address (text field, not JSONB)
+      property_address: extracted.lossDetails?.lossLocation || null,
+      
+      // Store complete FNOL data in metadata
+      metadata: extracted
+    };
+    
+    if (finalClaimId) {
+      // Update existing claim
+      console.log(`Updating existing claim ${finalClaimId} with ALL extracted data`);
+      
+      const { error: updateError } = await sb.from("claims").update(claimData).eq("id", finalClaimId);
+      
+      if (updateError) {
+        console.error(`Failed to update claim: ${updateError.message}`);
+      } else {
+        console.log(`Successfully updated claim ${finalClaimId}`);
+      }
+    } else {
+      // Create new claim
+      console.log(`Creating new claim with ALL extracted data`);
+      
+      const { data: newClaim, error: createError } = await sb
+        .from("claims")
+        .insert(claimData)
+        .select('id')
+        .single();
+      
+      if (createError) {
+        console.error(`Failed to create claim: ${createError.message}`);
+        console.error(`Error details:`, createError);
+      } else {
+        finalClaimId = newClaim.id;
+        console.log(`Successfully created claim ${finalClaimId}`);
+        
+        // Link document to newly created claim
+        await sb.from("documents").update({ claim_id: finalClaimId }).eq("id", payload.documentId);
+      }
     }
 
     // 9) Create initial workflow based on extracted loss type
@@ -489,8 +512,8 @@ OUTPUT
     return new Response(JSON.stringify({
       success: true,
       documentId: payload.documentId,
-      claimId: doc.claim_id || payload.claimId,
-      extraction: extracted,  // Changed from 'extracted' to 'extraction' to match client expectation
+      claimId: finalClaimId,
+      extraction: extracted,
       workflowGenerated: workflowItems.length > 0
     }), {
       headers: { ...CORS, "Content-Type": "application/json" }
