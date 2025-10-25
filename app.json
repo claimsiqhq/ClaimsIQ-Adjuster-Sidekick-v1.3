@@ -45,8 +45,7 @@
         "projectId": "31e9a2f0-7c90-41af-bdf1-f3e53d0e75dd"
       },
       "EXPO_PUBLIC_SUPABASE_URL": "https://lyppkkpawalcchbgbkxg.supabase.co",
-      "EXPO_PUBLIC_SUPABASE_API_KEY": "sb_publishable_xG1vNYVo-wpyHi4WzCdUGg_9XFL8Gxr",
-      "geminiApiKey": "$GEMINI_API_KEY"
+      "EXPO_PUBLIC_SUPABASE_API_KEY": "sb_publishable_xG1vNYVo-wpyHi4WzCdUGg_9XFL8Gxr"
     },
     "owner": "claimsiq",
     "android": {

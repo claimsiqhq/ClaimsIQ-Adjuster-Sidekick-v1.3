@@ -12,11 +12,12 @@ ClaimsIQ Sidekick is a production-ready iOS application for insurance field adju
 ### ✅ What's Working
 
 #### UI/UX
-- **All 6 tab layouts optimized** for iPhone 16 Pro Max with SafeAreaView
-- **Tab Navigation**: Home, Today, Capture, Claims, Map, Settings
+- **All 7 tab layouts optimized** for iPhone 16 Pro Max with SafeAreaView
+- **Tab Navigation**: Home, Capture, Claims, Map, Explore, Settings, Voice
 - **Offline-first architecture**: SQLite local database with sync capabilities
 - **Authentication**: Email/password login with hardcoded credentials
 - **Purple/pink brand theme** throughout the app
+- **Voice AI Assistant**: Live Google Gemini voice chat for field support
 
 #### Backend Infrastructure
 - **Supabase project configured** (`lyppkkpawalcchbgbkxg`)
@@ -84,6 +85,24 @@ SUPABASE_ANON_KEY: 'eyJhb...' // Full key in file
 EMAIL: 'john@claimsiq.ai'
 PASSWORD: 'admin123'
 ```
+
+#### Voice AI Configuration (Required for Voice Tab)
+
+**For Development in Replit:**
+1. Get your Gemini API key from https://aistudio.google.com/apikey
+2. Add to Replit Secrets:
+   - Click **Tools** → **Secrets**
+   - Add key: `GEMINI_API_KEY`
+   - Add value: Your API key
+3. Restart the Expo dev server
+
+**For EAS Builds:**
+```bash
+# Set EAS secret for builds
+eas secret:create --scope project --name GEMINI_API_KEY --value YOUR_API_KEY
+```
+
+The API key is read via `app.config.js` and injected into the app at build time.
 
 ### 4. Deploy Edge Functions (CRITICAL)
 
@@ -176,6 +195,15 @@ claimsiq-sidekick/
 - Weather integration for safety
 - **Status**: UI complete, needs edge function deployment
 
+### 5. Live Voice AI Assistant
+- Real-time conversation with Google Gemini AI via voice
+- Live bidirectional audio streaming with transcription
+- Specialized support for property claims inspectors
+- Voice-activated guidance on RAG systems and technical questions
+- **Status**: Fully implemented, requires GEMINI_API_KEY configuration
+- **Model**: `gemini-1.5-flash-preview-0514` with "Zephyr" voice
+- **Audio**: PCM format at 16kHz sample rate
+
 ## Technology Stack
 
 ### Frontend
@@ -195,14 +223,17 @@ claimsiq-sidekick/
 ### Key Dependencies
 ```json
 {
-  "@supabase/supabase-js": "^2.39.8",
-  "expo": "~54.0.0-preview.0",
-  "expo-camera": "~16.1.0",
-  "expo-sqlite": "^15.0.3",
-  "expo-location": "~18.0.2",
-  "react-native": "0.76.5",
-  "zustand": "^4.4.7",
-  "@shopify/react-native-skia": "1.9.0"
+  "@supabase/supabase-js": "^2.75.0",
+  "expo": "^54.0.9",
+  "expo-camera": "~17.0.8",
+  "expo-sqlite": "~16.0.8",
+  "expo-location": "^19.0.7",
+  "react-native": "0.81.4",
+  "zustand": "^5.0.8",
+  "@shopify/react-native-skia": "2.2.12",
+  "@google/genai": "^1.26.0",
+  "@react-native-voice/voice": "^3.2.4",
+  "react-native-nitro-sound": "^0.2.8"
 }
 ```
 
@@ -229,6 +260,22 @@ Password: admin123
 
 ### LiDAR warnings
 **Solution**: Already fixed - LiDAR feature disabled
+
+### Voice Assistant not working / "Voice Agent Unavailable" error
+**Causes**:
+- GEMINI_API_KEY not configured in Replit Secrets or EAS Secrets
+- Microphone permissions not granted
+- Invalid or expired API key
+
+**Solution**:
+1. Get API key from https://aistudio.google.com/apikey
+2. Add to Replit Secrets (Tools → Secrets → Add `GEMINI_API_KEY`)
+3. For builds: `eas secret:create --scope project --name GEMINI_API_KEY --value YOUR_KEY`
+4. Restart Expo dev server
+5. Grant microphone permissions when prompted
+
+### Voice connection keeps dropping
+**Solution**: Check internet connectivity - Gemini Live API requires stable connection for streaming audio
 
 ## Database Schema
 
