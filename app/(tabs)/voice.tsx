@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.textDark,
+    color: colors.core,
     marginBottom: 12,
   },
   errorText: {
