@@ -1,0 +1,44 @@
+Running "expo doctor"
+Running 17 checks on your project...
+14/17 checks passed. 3 checks failed. Possible issues detected:
+Use the --verbose flag to see more details about passed checks.
+✖ Check for legacy global CLI installed locally
+EAS CLI should not be installed in your project. Instead, install it globally or use "npx", "pnpx", or "bunx" depending on your preferred package manager.
+Advice:
+Remove eas-cli from your project dependencies.
+
+✖ Validate packages against React Native Directory package metadata
+The following issues were found when validating your dependencies against React Native Directory:
+  Untested on New Architecture: react-native-nitro-sound
+  No metadata available: react-native-pdf-lib
+Advice:
+Use libraries that are actively maintained and support the New Architecture. Find alternative libraries with https://reactnative.directory.
+Add packages to expo.doctor.reactNativeDirectoryCheck.exclude in package.json to selectively skip validations, if the warning is not relevant.
+Update React Native Directory to include metadata for unknown packages. Alternatively, set expo.doctor.reactNativeDirectoryCheck.listUnknownPackages in package.json to false to skip warnings about packages with no metadata, if the warning is not relevant.
+
+✖ Check that packages match versions required by installed Expo SDK
+
+⚠️ Minor version mismatches
+package               expected  found    
+@sentry/react-native  ~7.2.0    7.4.0    
+@types/react          ~19.1.10  19.2.2   
+
+🔧 Patch version mismatches
+package               expected  found    
+@expo/vector-icons    ^15.0.3   15.0.2   
+expo                  54.0.20   54.0.15  
+expo-dev-client       ~6.0.16   6.0.15   
+expo-system-ui        ~6.0.8    6.0.7    
+react-native          0.81.5    0.81.4   
+jest-expo             ~54.0.13  54.0.12  
+
+Changelogs:
+- expo-dev-client → https://github.com/expo/expo/blob/sdk-54/packages/expo-dev-client/CHANGELOG.md
+- expo-system-ui → https://github.com/expo/expo/blob/sdk-54/packages/expo-system-ui/CHANGELOG.md
+
+8 packages out of date.
+Advice:
+Use 'npx expo install --check' to review and upgrade your dependencies.
+To ignore specific packages, add them to "expo.install.exclude" in package.json. Learn more: https://expo.fyi/dependency-validation
+3 checks failed, indicating possible issues with the project.
+Command "expo doctor" failed.
