@@ -126,16 +126,31 @@ Deno.serve(async (req) => {
     
     if (!DOCUMENT_URL) throw new Error("Failed to get document URL");
     
-    // 3) Check document type - OpenAI Vision only supports images, not PDFs
+    // 3) Handle PDFs and images differently
     console.log(`Document type: ${doc.mime_type}, URL: ${DOCUMENT_URL}`);
-    
+
+    let imageUrls: string[] = [];
+
     if (doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith('.pdf')) {
-      throw new Error("PDF conversion not supported in edge function. Please convert PDF to images before uploading.");
+      console.log("Document is PDF - converting to images");
+
+      // Fetch the PDF file
+      const pdfResponse = await fetch(DOCUMENT_URL);
+      if (!pdfResponse.ok) {
+        throw new Error(`Failed to fetch PDF: ${pdfResponse.statusText}`);
+      }
+
+      const pdfBuffer = await pdfResponse.arrayBuffer();
+      const pdfData = new Uint8Array(pdfBuffer);
+
+      // Convert PDF pages to base64 images
+      imageUrls = await convertPDFToImages(pdfData);
+      console.log(`PDF converted to ${imageUrls.length} images`);
+    } else {
+      // For images, use the URL directly
+      imageUrls = [DOCUMENT_URL];
+      console.log("Using image URL for OpenAI processing");
     }
-    
-    // For images, use the URL directly
-    const imageUrls = [DOCUMENT_URL];
-    console.log("Using image URL for OpenAI processing");
     
     // 4) Get active FNOL extraction prompt (SINGLE PROMPT)
     const { data: promptData } = await sb
@@ -522,12 +537,12 @@ OUTPUT
   } catch (error) {
     console.error("Error during FNOL extraction:", error);
 
-    // Mark document as failed if we have documentId
+    // Mark document as error if we have documentId
     if (payload?.documentId && sb) {
       try {
         await sb.from("documents").update({
-          extraction_status: "failed",
-          extraction_error: error.message
+          extraction_status: "error",
+          extraction_error: error.message || String(error)
         }).eq("id", payload.documentId);
       } catch (updateError) {
         console.error("Failed to update document error status:", updateError);

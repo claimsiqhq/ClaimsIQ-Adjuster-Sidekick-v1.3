@@ -52,20 +52,29 @@ create trigger set_updated_at_claims
 -- ===== ROW LEVEL SECURITY =====
 alter table public.claims enable row level security;
 
--- Allow anon and authenticated users to read claims (adjust as needed)
+-- Allow authenticated users to read claims from their org
 drop policy if exists claims_select_policy on public.claims;
 create policy claims_select_policy
   on public.claims for select
-  to anon, authenticated
-  using (true);
+  to authenticated
+  using (
+    org_id IS NULL OR
+    org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+  );
 
--- Allow authenticated users to insert/update claims
+-- Allow authenticated users to insert/update claims in their org
 drop policy if exists claims_write_policy on public.claims;
 create policy claims_write_policy
   on public.claims for all
   to authenticated
-  using (true)
-  with check (true);
+  using (
+    org_id IS NULL OR
+    org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+  )
+  with check (
+    org_id IS NULL OR
+    org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+  );
 
 -- ===== FOREIGN KEY for media table =====
 -- Add foreign key constraint to media.claim_id if not exists

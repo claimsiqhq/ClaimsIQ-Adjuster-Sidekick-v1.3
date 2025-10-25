@@ -4,9 +4,17 @@ import 'react-native-get-random-values';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APP_CREDENTIALS } from '@/config/credentials';
 
-// ALWAYS use embedded credentials for maximum reliability
-const supabaseUrl = APP_CREDENTIALS.supabase.url;
-const supabaseKey = APP_CREDENTIALS.supabase.anonKey;
+// Use environment variables first, fall back to embedded credentials for backward compatibility
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || APP_CREDENTIALS.supabase.url;
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || APP_CREDENTIALS.supabase.anonKey;
+
+// Validate that credentials are present
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    'Missing Supabase credentials. Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env file. ' +
+    'See .env.example for reference.'
+  );
+}
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
