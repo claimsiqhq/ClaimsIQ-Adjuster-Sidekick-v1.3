@@ -98,19 +98,25 @@ export async function listClaimsLike(query: string, limit = 20): Promise<Claim[]
 }
 
 /**
- * Retrieves a list of claims associated with a specific user.
+ * Retrieves a list of claims associated with a specific user with pagination support.
  * It gracefully handles row-level security (RLS) errors by returning an empty array if access is denied.
  *
  * @param {string} userId - The unique identifier of the user whose claims are to be retrieved.
+ * @param {number} [limit=50] - The maximum number of claims to return.
+ * @param {number} [offset=0] - The number of claims to skip for pagination.
  * @returns {Promise<Claim[]>} A promise that resolves to an array of claims.
  * @throws {Error} Throws an error for failures other than RLS policy violations.
  */
-export async function getClaims(userId: string): Promise<Claim[]> {
+export async function getClaims(
+  userId: string,
+  limit = 50,
+  offset = 0
+): Promise<Claim[]> {
   let query = supabase
     .from('claims')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(50);
+    .range(offset, offset + limit - 1);
 
   if (userId) {
     query = query.eq('user_id', userId);
@@ -129,6 +135,35 @@ export async function getClaims(userId: string): Promise<Claim[]> {
   }
 
   return (data ?? []).map(normalizeClaim);
+}
+
+/**
+ * Gets the total count of claims for a user.
+ *
+ * @param {string} userId - The unique identifier of the user.
+ * @returns {Promise<number>} A promise that resolves to the total count.
+ * @throws {Error} Throws an error if the database query fails.
+ */
+export async function getClaimsCount(userId: string): Promise<number> {
+  let query = supabase
+    .from('claims')
+    .select('*', { count: 'exact', head: true });
+
+  if (userId) {
+    query = query.eq('user_id', userId);
+  }
+
+  const { count, error } = await query;
+
+  if (error) {
+    console.error('getClaimsCount error:', error);
+    if (error.code === 'PGRST301' || error.message?.includes('row-level security')) {
+      return 0;
+    }
+    throw error;
+  }
+
+  return count ?? 0;
 }
 
 /**
