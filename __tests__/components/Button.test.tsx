@@ -40,7 +40,7 @@ describe('Button Component', () => {
     expect(queryByText('Click Me')).toBeNull();
 
     // Loading indicator should be present
-    expect(getByTestId /ActivityIndicator/).toBeTruthy();
+    expect(getByTestId('ActivityIndicator')).toBeTruthy();
   });
 
   it('should render with icon', () => {

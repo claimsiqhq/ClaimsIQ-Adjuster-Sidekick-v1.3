@@ -162,7 +162,7 @@ export async function extractDataFromPDFImages(pages: ProcessedPage[], documentI
  * @returns {Promise<any>} A promise that resolves to the final extracted data.
  * @throws {Error} Throws an error if any step in the workflow fails.
  */
-export async function processCompleteF NOLDocument(
+export async function processCompleteFNOLDocument(
   pdfUri: string,
   pdfUrl: string,
   documentId: string
