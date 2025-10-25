@@ -193,10 +193,15 @@ export async function uploadMedia(base64Data: string, claimId: string, userId: s
  *
  * @param {number} [limit=100] - The maximum number of media items to return.
  * @param {MediaFilters} [filters] - An object containing filter criteria.
+ * @param {number} [offset=0] - The number of items to skip for pagination.
  * @returns {Promise<MediaItem[]>} A promise that resolves to an array of media items.
  * @throws {Error} Throws an error if the database query fails.
  */
-export async function listMedia(limit = 100, filters?: MediaFilters): Promise<MediaItem[]> {
+export async function listMedia(
+  limit = 100,
+  filters?: MediaFilters,
+  offset = 0
+): Promise<MediaItem[]> {
   let query = supabase.from('media').select('*');
 
   if (filters?.type) query = query.eq('type', filters.type);
@@ -205,11 +210,34 @@ export async function listMedia(limit = 100, filters?: MediaFilters): Promise<Me
   if (filters?.user_id) query = query.eq('user_id', filters.user_id);
   if (filters?.org_id) query = query.eq('org_id', filters.org_id);
 
-  query = query.order('created_at', { ascending: false }).limit(limit);
+  query = query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as MediaItem[];
+}
+
+/**
+ * Gets the total count of media items with optional filtering.
+ *
+ * @param {MediaFilters} [filters] - An object containing filter criteria.
+ * @returns {Promise<number>} A promise that resolves to the total count.
+ * @throws {Error} Throws an error if the database query fails.
+ */
+export async function getMediaCount(filters?: MediaFilters): Promise<number> {
+  let query = supabase.from('media').select('*', { count: 'exact', head: true });
+
+  if (filters?.type) query = query.eq('type', filters.type);
+  if (filters?.status) query = query.eq('status', filters.status);
+  if (filters?.claim_id) query = query.eq('claim_id', filters.claim_id);
+  if (filters?.user_id) query = query.eq('user_id', filters.user_id);
+  if (filters?.org_id) query = query.eq('org_id', filters.org_id);
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
 }
 
 /**
