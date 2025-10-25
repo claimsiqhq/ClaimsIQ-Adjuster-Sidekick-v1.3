@@ -248,5 +248,71 @@ Then restore the old credential configuration in `config/credentials.ts` and `ut
 
 ---
 
-**Status**: ✅ All critical issues resolved
+## Additional Fixes Applied
+
+### 5. ✅ Storage Bucket Configuration
+
+**Problem:**
+- No storage bucket RLS policies defined
+- Missing bucket configuration could cause upload failures
+- No clear documentation on bucket setup
+
+**Solution:**
+- Created `supabase/schema/storage_buckets.sql` with:
+  - Documents bucket configuration (50MB limit, PDF and images)
+  - Media bucket configuration (100MB limit, images and videos)
+  - Complete RLS policies for both buckets
+  - Public access for getPublicUrl() functionality
+  - MIME type restrictions for security
+
+**Files Modified:**
+- `supabase/schema/storage_buckets.sql` (created)
+
+**Action Required:**
+Run the storage_buckets.sql migration to create buckets and apply RLS policies
+
+---
+
+### 6. ✅ Optimized PDF Upload Workflow
+
+**Problem:**
+- Client was converting PDFs to images before upload
+- Server was also capable of PDF conversion
+- Duplicate/conflicting workflows causing confusion
+- Inefficient use of resources
+
+**Solution:**
+- Removed client-side PDF conversion code
+- PDFs now upload directly to server
+- Server handles conversion in fnol-extract edge function
+- Simpler, more efficient workflow
+- Commented out old conversion function for reference
+
+**Files Modified:**
+- `app/document/upload.tsx` - Removed client-side PDF conversion
+
+**Benefits:**
+- Faster uploads (single file instead of multiple images)
+- Less client-side processing
+- Simplified code maintenance
+- Better error handling on server
+
+---
+
+### 7. ✅ Fixed Edge Function Error Status
+
+**Problem:**
+- fnol-extract was setting extraction_status to "failed" instead of "error"
+- Mismatch with ExtractionStatus type definition ('pending' | 'processing' | 'completed' | 'error')
+
+**Solution:**
+- Fixed status to "error" to match type definition
+- Improved error message handling
+
+**Files Modified:**
+- `supabase/functions/fnol-extract/index.ts` (line 544)
+
+---
+
+**Status**: ✅ All critical issues resolved + additional optimizations
 **Ready for**: Testing and deployment

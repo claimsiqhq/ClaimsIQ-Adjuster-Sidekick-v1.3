@@ -537,12 +537,12 @@ OUTPUT
   } catch (error) {
     console.error("Error during FNOL extraction:", error);
 
-    // Mark document as failed if we have documentId
+    // Mark document as error if we have documentId
     if (payload?.documentId && sb) {
       try {
         await sb.from("documents").update({
-          extraction_status: "failed",
-          extraction_error: error.message
+          extraction_status: "error",
+          extraction_error: error.message || String(error)
         }).eq("id", payload.documentId);
       } catch (updateError) {
         console.error("Failed to update document error status:", updateError);
